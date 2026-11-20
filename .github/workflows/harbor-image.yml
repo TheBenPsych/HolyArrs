@@ -1,15 +1,22 @@
 name: Harbor - Build the app
 
-# Harbor's own workflow (not part of HolyArrs). Every change that lands on
-# main is built into one Docker image and stored in this repository's own
-# GitHub package list, ready for Tower to pull:
+# Harbor's own workflow (not part of HolyArrs).
+#
+# On a pull request: builds the image and runs the Go checks, and stores
+# nothing. This is the check a pull request must pass.
+# On main: builds the image and stores it in this repository's own GitHub
+# package list, ready for Tower to pull:
 #
 #   ghcr.io/<owner>/harbor:latest
 #
 # Kept in its own file so pulling in HolyArrs updates never conflicts with it.
+# It has no schedule on purpose: GitHub switches scheduled workflows off in
+# a fork, which is why "HolyArrs - Build" does not run here.
 
 on:
   push:
+    branches: [main]
+  pull_request:
     branches: [main]
   workflow_dispatch:
 
@@ -17,12 +24,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: harbor-image
-  cancel-in-progress: false
+  group: harbor-image-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   image:
-    name: Build and store the image
+    name: Build the image
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -44,6 +51,7 @@ jobs:
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
       - name: Sign in to this repository's package list
+        if: github.event_name != 'pull_request'
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ghcr.io
@@ -57,7 +65,7 @@ jobs:
           context: .
           file: deploy/Dockerfile
           platforms: linux/amd64
-          push: true
+          push: ${{ github.event_name != 'pull_request' }}
           build-args: VERSION=${{ steps.names.outputs.version }}
           labels: |
             org.opencontainers.image.title=Harbor
@@ -69,3 +77,26 @@ jobs:
             ${{ steps.names.outputs.image }}:build-${{ github.run_number }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  go-checks:
+    name: Go checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test ./...
