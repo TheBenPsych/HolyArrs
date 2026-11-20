@@ -1,0 +1,125 @@
+/* Harbor's sea-chart look, light and dark.
+   Loaded right after lib/core/tokens.css (see app.css) with the same
+   selectors, so these values win and every HolyArrs page picks them up
+   without its own file changing. Keep HolyArrs's variable names: only the
+   values are Harbor's. Design: harbor-5-from-scratch (sea-chart). */
+@import '@fontsource/barlow-semi-condensed/500.css';
+@import '@fontsource/barlow-semi-condensed/600.css';
+@import '@fontsource/barlow-semi-condensed/700.css';
+@import '@fontsource-variable/figtree/wght.css';
+
+/* Values that do not change between light and dark. */
+:root {
+	/* Headings: Barlow Semi Condensed. Everything else: Figtree. */
+	--font-display: 'Barlow Semi Condensed', 'Arial Narrow', system-ui, sans-serif;
+	--font-ui: 'Figtree Variable', 'Figtree', system-ui, -apple-system, 'Segoe UI', sans-serif;
+	--font-mono: var(--font-ui);
+	--font-features: normal;
+	--tracking-body: 0em;
+	/* A condensed face needs no tightening. */
+	--t-large-title-track: -0.005em;
+	--t-title1-track: -0.004em;
+	--t-title2-track: 0em;
+	--t-title3-track: 0em;
+	--tracking-display: 0em;
+}
+
+/* Light (default): pale chart paper, deep-sea ink, magenta chart marks. */
+:root, [data-theme='light'] {
+	--bg: #edf1f3;
+	--sidebar-bg: rgb(250 252 252 / 88%);
+	--sidebar-solid: #fafcfc;
+	--surface-1: #fafcfc;
+	--surface-2: #e2eaef;
+	--surface-3: #d3dfe7;
+	--line: #cdd7de;
+	--line-strong: #b3c1cb;
+	--text: #13283b;
+	--text-muted: #52677a;
+	--text-faint: #7a8b9a;
+	--accent: #a9257f;
+	--accent-soft: rgb(169 37 127 / 10%);
+	--accent-text: #a9257f;
+	--accent-fill: #a9257f;
+	--accent-fill-hover: #921f6d;
+	--text-on-red: #ffffff;
+	--ok-fill: #1c7f55;
+	--ok-fill-hover: #176b47;
+	--ok: #1c7f55; --wait: #a86b00; --fail: #c2392f; --info: #1f6f9f;
+	--ok-text: #176b47; --wait-text: #8a5800; --fail-text: #a82f26; --info-text: #1a5f88;
+	--scrim: rgb(12 23 31 / 42%);
+	--shadow-card: 0 1px 2px rgb(19 40 59 / 6%), 0 4px 12px rgb(19 40 59 / 6%);
+	--shadow-lift: 0 2px 4px rgb(19 40 59 / 8%), 0 12px 28px rgb(19 40 59 / 14%);
+	--shadow-modal: 0 24px 64px rgb(19 40 59 / 24%);
+	--seg-thumb: #fafcfc;
+}
+
+/* Dark: night chart, the system choice when nothing is picked… */
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme='light']) {
+		--bg: #0c171f;
+		--sidebar-bg: rgb(19 34 45 / 88%);
+		--sidebar-solid: #13222d;
+		--surface-1: #13222d;
+		--surface-2: #192c39;
+		--surface-3: #223747;
+		--line: #24384a;
+		--line-strong: #34495c;
+		--text: #e1eaf0;
+		--text-muted: #93a6b5;
+		--text-faint: #74889a;
+		--accent: #e77fc8;
+		--accent-soft: rgb(231 127 200 / 16%);
+		--accent-text: #e77fc8;
+		--accent-fill: #a9257f;
+		--accent-fill-hover: #921f6d;
+		--text-on-red: #ffffff;
+		--ok-fill: #1c7f55;
+		--ok-fill-hover: #176b47;
+		--ok: #56c795; --wait: #e6b450; --fail: #f27d73; --info: #6cb4e0;
+		--ok-text: #56c795; --wait-text: #e6b450; --fail-text: #f27d73; --info-text: #6cb4e0;
+		--scrim: rgb(4 10 14 / 62%);
+		--seg-thumb: #34495c;
+		--shadow-card: 0 1px 2px rgb(0 0 0 / 30%), 0 4px 12px rgb(0 0 0 / 28%), var(--ring-dark);
+		--shadow-lift: 0 2px 4px rgb(0 0 0 / 34%), 0 12px 28px rgb(0 0 0 / 44%), var(--ring-dark);
+		--shadow-modal: 0 24px 64px rgb(0 0 0 / 56%), var(--ring-dark);
+	}
+}
+/* …or picked by the person, or set on a wrapper. */
+:root[data-theme='dark'], [data-theme='dark'] {
+	--bg: #0c171f;
+	--sidebar-bg: rgb(19 34 45 / 88%);
+	--sidebar-solid: #13222d;
+	--surface-1: #13222d;
+	--surface-2: #192c39;
+	--surface-3: #223747;
+	--line: #24384a;
+	--line-strong: #34495c;
+	--text: #e1eaf0;
+	--text-muted: #93a6b5;
+	--text-faint: #74889a;
+	--accent: #e77fc8;
+	--accent-soft: rgb(231 127 200 / 16%);
+	--accent-text: #e77fc8;
+	--accent-fill: #a9257f;
+	--accent-fill-hover: #921f6d;
+	--text-on-red: #ffffff;
+	--ok-fill: #1c7f55;
+	--ok-fill-hover: #176b47;
+	--ok: #56c795; --wait: #e6b450; --fail: #f27d73; --info: #6cb4e0;
+	--ok-text: #56c795; --wait-text: #e6b450; --fail-text: #f27d73; --info-text: #6cb4e0;
+	--scrim: rgb(4 10 14 / 62%);
+	--seg-thumb: #34495c;
+	--shadow-card: 0 1px 2px rgb(0 0 0 / 30%), 0 4px 12px rgb(0 0 0 / 28%), var(--ring-dark);
+	--shadow-lift: 0 2px 4px rgb(0 0 0 / 34%), 0 12px 28px rgb(0 0 0 / 44%), var(--ring-dark);
+	--shadow-modal: 0 24px 64px rgb(0 0 0 / 56%), var(--ring-dark);
+}
+
+/* The name beside the mark reads like a chart title: HARBOR. */
+.ui-sidebar .brand .word,
+.brand > span {
+	font-family: var(--font-display);
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}

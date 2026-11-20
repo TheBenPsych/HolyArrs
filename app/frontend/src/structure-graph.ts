@@ -28,7 +28,8 @@ export const LAYER: Record<string, number> = {
 	health: 9,
 	updates: 9,
 	setup: 9,
-	plugins: 9
+	plugins: 9,
+	harbor: 10 // Harbor's own module (fork additions)
 };
 
 export function listFiles(dir = SRC, out: string[] = []): string[] {

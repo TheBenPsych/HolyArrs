@@ -1,5 +1,5 @@
 import type { Handle } from '@sveltejs/kit/hooks';
-import geistLatin from '@fontsource-variable/geist/files/geist-latin-wght-normal.woff2?url';
+import geistLatin from '@fontsource-variable/figtree/files/figtree-latin-wght-normal.woff2?url'; // Harbor: Figtree
 
 // The app's text font starts loading with the page instead of after its
 // styles: app.html gets a preload for the built (hashed) file the styles name.

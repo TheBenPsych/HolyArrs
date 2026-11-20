@@ -7,6 +7,7 @@
 	import { to, appPath } from '#lib/core/paths.ts';
 	import '../app.css';
 	import { onMount, tick, type Snippet } from 'svelte';
+	import { watchTitles } from '#lib/harbor/index.ts';
 	import { navigating, page } from '$app/state';
 	import { afterNavigate, beforeNavigate, goto, onNavigate, preloadCode } from '$app/navigation';
 	import { hideReconnecting, loaderReady, navEnded, navWatch, showReconnecting } from '#lib/core/loader.ts';
@@ -177,6 +178,7 @@
 	}
 
 	onMount(trackInputModality);
+	onMount(watchTitles); // Harbor: name in the browser tab
 	onMount(installScrollBar);
 	onMount(installPersonPrefetch);
 	// Artist and album data on hover, touch and the first cards on screen.

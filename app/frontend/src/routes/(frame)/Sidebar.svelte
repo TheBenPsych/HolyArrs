@@ -65,7 +65,7 @@
 <aside {id} class="ui-sidebar" class:collapsed class:overlay aria-label={t('frame.sidebar.label')}>
 	<div class="top">
 		<a class="brand" href={brandHref} aria-label={t('frame.sidebar.home')} onclick={onpick}>
-			<img src={markSrc} alt="" width="28" height="28" /><span class="word">HolyArrs</span>
+			<img src={markSrc} alt="" width="28" height="28" /><span class="word">Harbor</span>
 		</a>
 		<span class="tog">
 			<IconButton bind:node={toggle} icon="sidebar" label={collapsed ? t('frame.sidebar.show') : t('frame.sidebar.hide')} aria-expanded={!collapsed} aria-controls={id} tipSide={collapsed ? 'right' : 'below'} onclick={ontoggle} />
