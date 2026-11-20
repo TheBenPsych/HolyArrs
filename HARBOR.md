@@ -43,5 +43,5 @@ tag, and Harbor does not push version tags.
 ## Builds
 
 `.github/workflows/harbor-image.yml` checks every pull request (image build,
-`go vet`, `go test`) and builds every change on `main` into
+`go build`, `go vet`) and builds every change on `main` into
 `ghcr.io/thebenpsych/harbor:latest`. Nothing is published to Docker Hub.

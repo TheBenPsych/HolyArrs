@@ -2,7 +2,7 @@ name: Harbor - Build the app
 
 # Harbor's own workflow (not part of HolyArrs).
 #
-# On a pull request: builds the image and runs the Go checks, and stores
+# On a pull request: builds the image and runs the Go build and vet checks, and stores
 # nothing. This is the check a pull request must pass.
 # On main: builds the image and stores it in this repository's own GitHub
 # package list, ready for Tower to pull:
@@ -95,8 +95,13 @@ jobs:
         with:
           go-version-file: go.mod
 
+      # The same two Go checks HolyArrs runs in its own build workflow.
+      # HolyArrs does not run its full test suite in CI (it takes about 13
+      # minutes, needs the web app built first, and is run by its maintainer
+      # before a release), so neither does Harbor. Tests for Harbor's own
+      # code are added here as that code is written.
+      - name: Build
+        run: go build -trimpath -o /dev/null ./app/backend/cmd/holyarrs
+
       - name: Vet
         run: go vet ./...
-
-      - name: Test
-        run: go test ./...
