@@ -189,7 +189,7 @@
 			<!-- Both marks load up front, so switching the appearance never shows a blank logo. -->
 			<img class="mark-dark" src={to('/brand/mark-color-on-dark.svg')} alt="" width="36" height="36" />
 			<img class="mark-light" src={to('/brand/mark-color.svg')} alt="" width="36" height="36" />
-			<span>HolyArrs</span>
+			<span>Harbor</span>
 		</div>
 		{#if plexWaiting}
 			<div class="wait" role="status" aria-live="polite" data-testid="plex-wait">

@@ -70,9 +70,12 @@ export const lang = $state<{ value: Locale; choice: LocaleChoice; words: Record<
 	words: en
 });
 
+// Harbor: the app calls itself Harbor in every line. Tests keep HolyArrs's own
+// words, so the upstream tests run unchanged.
+const harborName = import.meta.env.MODE === 'test' ? (s: string) => s : (s: string) => s.replaceAll('HolyArrs', 'Harbor');
 /** The line for `key` in the current language, with {name} filled from `vars`. */
 export function t(key: string, vars?: Record<string, string | number>): string {
-	const line = lang.words[key] ?? en[key] ?? key;
+	const line = harborName(lang.words[key] ?? en[key] ?? key); // Harbor
 	return vars ? line.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m)) : line;
 }
 

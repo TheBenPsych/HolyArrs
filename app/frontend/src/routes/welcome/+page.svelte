@@ -270,7 +270,7 @@
 <div class="welcome" class:over-art={firstRun} data-theme={firstRun ? 'dark' : undefined}>
 	<!-- First run keeps the sign-in look: the same moving backdrop behind one glass panel. -->
 	<div class="sheet" class:glass={firstRun} class:light={theme.value === 'light'} data-signin-panel={firstRun ? '' : undefined}>
-	<div class="brand"><img src={to(mark)} alt={firstRun ? 'HolyArrs' : ''} width={firstRun ? 28 : 32} height={firstRun ? 28 : 32} />{#if !firstRun}<span>HolyArrs</span>{/if}</div>
+	<div class="brand"><img src={to(mark)} alt={firstRun ? 'Harbor' : ''} width={firstRun ? 28 : 32} height={firstRun ? 28 : 32} />{#if !firstRun}<span>Harbor</span>{/if}</div>
 	{#if firstRun && prev && session.can('users') && (step !== 'import' || sourcesStep.moveStep === 'read')}
 		<span class="corner"><IconButton icon="chevronLeft" variant="tinted" label={t('welcome.back')} onclick={back} disabled={busy} /></span>
 	{/if}

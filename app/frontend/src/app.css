@@ -2,6 +2,7 @@
    layout and shared parts only. */
 @import '@fontsource-variable/geist/wght.css';
 @import './lib/core/tokens.css';
+@import './lib/harbor/harbor-look.css'; /* Harbor: sea-chart look */
 
 :root {
 	/* 1 left-to-right, -1 right-to-left: multiplies sideways slides and offsets. */
