@@ -1,0 +1,107 @@
+name: Harbor - Build the app
+
+# Harbor's own workflow (not part of HolyArrs).
+#
+# On a pull request: builds the image and runs the Go build and vet checks, and stores
+# nothing. This is the check a pull request must pass.
+# On main: builds the image and stores it in this repository's own GitHub
+# package list, ready for Tower to pull:
+#
+#   ghcr.io/<owner>/harbor:latest
+#
+# Kept in its own file so pulling in HolyArrs updates never conflicts with it.
+# It has no schedule on purpose: GitHub switches scheduled workflows off in
+# a fork, which is why "HolyArrs - Build" does not run here.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: harbor-image-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  image:
+    name: Build the image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Work out names
+        id: names
+        run: |
+          owner="$(printf '%s' "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')"
+          echo "image=ghcr.io/$owner/harbor" >> "$GITHUB_OUTPUT"
+          echo "version=$(tr -d '[:space:]' < VERSION)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      - name: Sign in to this repository's package list
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      # Tower is an Intel machine, so one platform is enough.
+      - name: Build and store
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          file: deploy/Dockerfile
+          platforms: linux/amd64
+          push: ${{ github.event_name != 'pull_request' }}
+          build-args: VERSION=${{ steps.names.outputs.version }}
+          labels: |
+            org.opencontainers.image.title=Harbor
+            org.opencontainers.image.description=Harbor, a fork of HolyArrs (AGPL-3.0)
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          tags: |
+            ${{ steps.names.outputs.image }}:latest
+            ${{ steps.names.outputs.image }}:build-${{ github.run_number }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  go-checks:
+    name: Go checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      # The same two Go checks HolyArrs runs in its own build workflow.
+      # HolyArrs does not run its full test suite in CI (it takes about 13
+      # minutes, needs the web app built first, and is run by its maintainer
+      # before a release), so neither does Harbor. Tests for Harbor's own
+      # code are added here as that code is written.
+      - name: Build
+        run: go build -trimpath -o /dev/null ./app/backend/cmd/holyarrs
+
+      - name: Vet
+        run: go vet ./...
