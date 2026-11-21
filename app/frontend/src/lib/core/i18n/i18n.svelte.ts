@@ -1,4 +1,5 @@
 // The app's words in the person's language. English ships in the bundle; other languages load when picked, and any missing line falls back to English.
+import { HARBOR_WORDS } from './harbor-words.ts'; // Harbor
 
 export type Locale =
 	| 'en' | 'es' | 'pt-br' | 'pt-pt' | 'fr' | 'de' | 'it' | 'nl' | 'sv' | 'nb' | 'da' | 'fi' | 'ru' | 'uk' | 'pl' | 'cs' | 'hu' | 'ro' | 'el'
@@ -72,10 +73,11 @@ export const lang = $state<{ value: Locale; choice: LocaleChoice; words: Record<
 
 // Harbor: the app calls itself Harbor in every line. Tests keep HolyArrs's own
 // words, so the upstream tests run unchanged.
+const harborWord = (key: string): string | undefined => (import.meta.env.MODE === 'test' ? undefined : HARBOR_WORDS[key]);
 const harborName = import.meta.env.MODE === 'test' ? (s: string) => s : (s: string) => s.replaceAll('HolyArrs', 'Harbor');
 /** The line for `key` in the current language, with {name} filled from `vars`. */
 export function t(key: string, vars?: Record<string, string | number>): string {
-	const line = harborName(lang.words[key] ?? en[key] ?? key); // Harbor
+	const line = harborName(harborWord(key) ?? lang.words[key] ?? en[key] ?? key); // Harbor
 	return vars ? line.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m)) : line;
 }
 
