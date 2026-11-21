@@ -52,6 +52,7 @@ func (a *handlers) byHandRoutes(m *http.ServeMux) {
 // register themselves from cmd/holyarrs/wiring.go instead.
 func (a *handlers) Routes(rt *webserver.Router) {
 	m := rt.Mux()
+	harborMangaRoutes(m) // Harbor: the manga lane (harbor_manga.go)
 	m.HandleFunc("GET /api/v1/titles", a.listTitles)
 	if a.s.Store != nil { // some tests build the API without a store
 		(&downloads.TagHandlers{DB: a.s.Store.Read()}).Routes(m)
