@@ -12,6 +12,7 @@ export type MangaShelfItem = {
 	sources: string[];
 	official: number;
 	left_out: MangaLeft[];
+	gaps?: string[];
 	first?: string;
 	last?: string;
 	error?: string;
@@ -102,4 +103,24 @@ export function sitesLine(v: MangaSites): string {
 	const asked = v.sites.filter((s) => s.asked).length;
 	const mode = v.rules.official === 'only' ? 'official only' : v.rules.official === 'any' ? 'your order' : 'official first';
 	return `Asking ${asked.toLocaleString('en-US')} of ${v.sites.length.toLocaleString('en-US')}${v.rules.english_only ? ', English only' : ''}, ${mode}`;
+}
+
+/** Missing chapters as ranges: "Missing chapters 12, 40 to 42." or "" when none. */
+export function gapsLine(s: MangaShelfItem): string {
+	const nums = (s.gaps ?? []).map(Number).filter((n) => Number.isFinite(n)).sort((a, b) => a - b);
+	if (!nums.length) return '';
+	const runs: string[] = [];
+	let from = nums[0];
+	let to = nums[0];
+	for (const n of nums.slice(1)) {
+		if (n === to + 1) {
+			to = n;
+			continue;
+		}
+		runs.push(from === to ? `${from}` : `${from} to ${to}`);
+		from = to = n;
+	}
+	runs.push(from === to ? `${from}` : `${from} to ${to}`);
+	const shown = runs.slice(0, 8).join(', ');
+	return `Missing ${nums.length === 1 ? 'chapter' : 'chapters'} ${shown}${runs.length > 8 ? ' and more' : ''}.`;
 }

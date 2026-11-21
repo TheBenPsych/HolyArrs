@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -71,9 +72,12 @@ type Report struct {
 	Sources  []string     `json:"sources"`
 	Official int          `json:"official"`
 	LeftOut  []SeriesLeft `json:"left_out"`
-	First    string       `json:"first,omitempty"`
-	Last     string       `json:"last,omitempty"`
-	Error    string       `json:"error,omitempty"`
+	// Gaps are whole chapter numbers missing between the first and last
+	// chapter on the shelf, for example ["12", "40"].
+	Gaps  []string `json:"gaps"`
+	First string   `json:"first,omitempty"`
+	Last  string   `json:"last,omitempty"`
+	Error string   `json:"error,omitempty"`
 }
 
 // Scan finds every series the engine has downloaded: series name to its raw
@@ -263,6 +267,7 @@ func (l Librarian) tidy(p Plan) Report {
 	}
 	if len(p.Kept) > 0 {
 		rep.First, rep.Last = p.Kept[0].Number.String(), p.Kept[len(p.Kept)-1].Number.String()
+		rep.Gaps = gaps(p.Kept)
 	}
 	if !exists(filepath.Join(folder, "cover.jpg")) {
 		_ = writeCover(p.Kept[0].File.Path, filepath.Join(folder, "cover.jpg"))
@@ -405,4 +410,32 @@ func writeCover(cbz, dst string) error {
 		return err
 	}
 	return os.Rename(tmp, dst)
+}
+
+// gaps lists the whole chapter numbers missing between the first and last
+// single chapter kept. Volumes are not counted, and the list stops at 200.
+func gaps(kept []Kept) []string {
+	out := []string{}
+	have := map[int]bool{}
+	lo, hi, any := 0, 0, false
+	for _, k := range kept {
+		if k.Volume {
+			continue
+		}
+		w := k.Number.Whole
+		have[w] = true
+		if !any || w < lo {
+			lo = w
+		}
+		if !any || w > hi {
+			hi = w
+		}
+		any = true
+	}
+	for n := lo + 1; any && n < hi && len(out) < 200; n++ {
+		if !have[n] {
+			out = append(out, strconv.Itoa(n))
+		}
+	}
+	return out
 }
