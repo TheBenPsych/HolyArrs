@@ -28,6 +28,7 @@ export interface HarborSection<I extends HarborItem = HarborItem> {
 export const HARBOR_PLACES = ['Today', 'Board', 'Explore', 'Shelves', 'Tower'] as const;
 export const HARBOR_MORE = 'More';
 export const HARBOR_BOARD = '/board';
+export const HARBOR_TOWER = '/tower';
 
 const base = (href: string) => href.split('?')[0];
 
@@ -57,9 +58,10 @@ export function harborNav<I extends HarborItem, S extends HarborSection<I>>(sect
 	const health = find('/health');
 	const settings = find('/settings');
 
-	// Tower opens Status for people who may see it, otherwise Settings. It carries the settings flag either way.
+	// Tower shows for people who may see Status or Settings. It carries the settings flag either way.
 	const towerFrom = health ?? settings;
-	const tower = towerFrom ? place({ ...towerFrom, dot: settings?.dot ?? towerFrom.dot } as I, 'Tower', 'tools', ['/settings', '/plugins', '/health']) : null;
+	// It is Harbor's own page (lib/harbor/HarborTower); Status and Settings stay under More for the detail.
+	const tower = towerFrom ? ({ ...towerFrom, dot: settings?.dot ?? towerFrom.dot, href: HARBOR_TOWER, label: 'Tower', icon: 'tools', also: ['/plugins'], badge: undefined, badgeLabel: undefined, ring: undefined } as I) : null;
 
 	const five = [
 		// Today is the home page; the Calendar belongs to it (its arrivals line links there).

@@ -22,9 +22,9 @@ describe('harborNav', () => {
 	it('puts the five places first and keeps every HolyArrs page under them', () => {
 		const out = harborNav(owner);
 		expect(out[0].items.map((i) => i.label)).toEqual(['Today', 'Board', 'Explore', 'Shelves', 'Tower']);
-		expect(out[0].items.map((i) => i.href)).toEqual(['/', '/board', '/explore', '/library', '/health']);
+		expect(out[0].items.map((i) => i.href)).toEqual(['/', '/board', '/explore', '/library', '/tower']);
 		const rest = out.slice(1).flatMap((s) => s.items.map((i) => i.href));
-		expect(rest).toEqual(['/popular', '/search', '/library?kind=movie', '/library?kind=show', '/requests', '/settings']);
+		expect(rest).toEqual(['/popular', '/search', '/library?kind=movie', '/library?kind=show', '/requests', '/health', '/settings']);
 		expect(out[1].label).toBe('More');
 	});
 	it('carries the waiting count to Board and the settings flag to Tower', () => {

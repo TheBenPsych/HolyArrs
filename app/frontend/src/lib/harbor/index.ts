@@ -7,3 +7,4 @@ export { default as HarborAsk } from './HarborAsk.svelte';
 export { default as HarborShelves } from './HarborShelves.svelte';
 export { default as HarborTidy } from './HarborTidy.svelte';
 export { default as HarborTitleStrip } from './HarborTitleStrip.svelte';
+export { default as HarborTower } from './HarborTower.svelte';
