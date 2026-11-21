@@ -40,8 +40,16 @@
 	let line = $state<MangaQueue | null>(null);
 	const following = $derived(new Set((view?.following ?? []).map((f) => f.title.toLowerCase())));
 
-	async function find(e: SubmitEvent) {
-		e.preventDefault();
+	// A title handed over by the main Search page (?q=) is looked up at once.
+	onMount(() => {
+		const handed = new URLSearchParams(location.search).get('q')?.trim();
+		if (handed) {
+			q = handed;
+			void find();
+		}
+	});
+	async function find(e?: SubmitEvent) {
+		e?.preventDefault();
 		const text = q.trim();
 		if (text.length < 2 || looking) return;
 		looking = true;

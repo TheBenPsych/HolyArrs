@@ -9,3 +9,4 @@ export { default as HarborTidy } from './HarborTidy.svelte';
 export { default as HarborTitleStrip } from './HarborTitleStrip.svelte';
 export { default as HarborTower } from './HarborTower.svelte';
 export { default as HarborManga } from './HarborManga.svelte';
+export { default as HarborMangaRow } from './HarborMangaRow.svelte';
