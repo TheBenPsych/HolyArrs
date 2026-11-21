@@ -91,6 +91,18 @@ type GetResult struct {
 func (s *Service) get(ctx context.Context, f Followed) GetResult {
 	res := GetResult{Title: f.Title, BySite: map[string]int{}, Failed: []string{}}
 	e := Engine{URL: s.Engine}
+	s.fmu.Lock()
+	rules := s.Lib.loadSiteRules()
+	s.fmu.Unlock()
+	// Leave out copies on sites the owner has since switched off. Copies
+	// saved before sites had ids are kept.
+	var on []Found
+	for _, o := range f.On {
+		if ok, _ := rules.Allows(Site{ID: o.SiteID, Name: o.Site, Lang: "en"}); ok || o.SiteID == "" {
+			on = append(on, o)
+		}
+	}
+	f.On = on
 	opts := make([]Option, len(f.On))
 	errs := make([]error, len(f.On))
 	var wg sync.WaitGroup
@@ -101,7 +113,7 @@ func (s *Service) get(ctx context.Context, f Followed) GetResult {
 			c, cancel := context.WithTimeout(ctx, 60*time.Second)
 			defer cancel()
 			chs, err := e.Chapters(c, o.ID)
-			opts[i], errs[i] = Option{MangaID: o.ID, Site: o.Site, Chapters: chs}, err
+			opts[i], errs[i] = Option{MangaID: o.ID, Site: o.Site, Chapters: chs, Rank: rules.Rank(o.SiteID)}, err
 		}(i, o)
 	}
 	wg.Wait()
@@ -120,7 +132,7 @@ func (s *Service) get(ctx context.Context, f Followed) GetResult {
 		return res
 	}
 	res.Error = ""
-	c := Choose(good, s.Lib.shelfHave(f.Title))
+	c := ChooseBy(good, s.Lib.shelfHave(f.Title), rules.Official != "any")
 	res.Queued, res.Have, res.Total, res.BySite = len(c.IDs), c.Have, c.Total, c.BySite
 	for _, o := range good {
 		_ = e.Follow(ctx, o.MangaID)

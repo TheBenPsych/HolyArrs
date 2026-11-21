@@ -8,6 +8,7 @@
 	import Icon from '#lib/ui/Icon.svelte';
 	import { to } from '#lib/core/paths.ts';
 	import { api as client, message } from '#lib/core/api.ts';
+	import HarborMangaSites from './HarborMangaSites.svelte';
 	import { gotLine, hitLine, leftCount, leftGroups, queueLine, searchLine, seriesLine, type MangaGot, type MangaHit, type MangaQueue, type MangaSearch, type MangaView } from './manga.ts';
 
 	let view = $state<MangaView | null>(null);
@@ -167,6 +168,7 @@
 				</li>
 			{/each}
 		</ul>
+		{#if view.engine}<HarborMangaSites engine={view.engine} />{/if}
 		{#if view.following?.length}
 			<p class="later">Harbor looks for new chapters four times a day for: {view.following.map((f) => f.title).join(', ')}.</p>
 		{/if}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { gotLine, hitLine, leftCount, leftGroups, queueLine, searchLine, seriesLine, type MangaShelfItem } from './manga.ts';
+import { gotLine, hitLine, leftCount, leftGroups, queueLine, searchLine, seriesLine, sitesLine, type MangaShelfItem } from './manga.ts';
 
 const s: MangaShelfItem = {
 	series: 'The Eminence in Shadow', folder: '/manga/The Eminence in Shadow', chapters: 95, added: 95, removed: 0, sources: ['MangaFire'], official: 0, first: '1', last: '94',
@@ -30,5 +30,11 @@ describe('manga shelf words', () => {
 		expect(gotLine({ title: 'X', queued: 0, have: 95, total: 95, by_site: {}, failed: [] })).toBe('X: all 95 chapters are already here.');
 		expect(queueLine({ going: true, left: 9, stuck: 0, now: [{ title: 'X', chapter: 'Ch. 2', state: 'DOWNLOADING', progress: 0.5 }] })).toBe('9 chapters in line. Now: X, Ch. 2. About 3 minutes left.');
 		expect(queueLine({ going: true, left: 0, stuck: 0, now: [] })).toBe('');
+	});
+	it('sums up the site rules', () => {
+		const site = (id: string, asked: boolean) => ({ id, name: id, lang: 'en', official: false, off: !asked, asked });
+		expect(sitesLine({ rules: { english_only: true, official: 'first', off: ['c'], order: [] }, sites: [site('a', true), site('b', true), site('c', false)] })).toBe('Asking 2 of 3, English only, official first');
+		expect(sitesLine({ rules: { english_only: false, official: 'any', off: [], order: [] }, sites: [site('a', true)] })).toBe('Asking 1 of 1, your order');
+		expect(searchLine({ hits: [], sites: 0, failed: [], skipped: 3 })).toBe('Your site rules leave no site to ask. Open Sites and rules below.');
 	});
 });

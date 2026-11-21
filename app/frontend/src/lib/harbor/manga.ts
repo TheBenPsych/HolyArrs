@@ -19,7 +19,10 @@ export type MangaFound = { id: number; title: string; cover?: string; site: stri
 export type MangaFollowed = { title: string; on: MangaFound[]; since?: string; checked?: string; total?: number; note?: string };
 export type MangaView = { on: boolean; library?: string; raw?: string; engine?: string; tidied?: string; error?: string; series: MangaShelfItem[]; following?: MangaFollowed[] };
 export type MangaHit = { key: string; title: string; cover?: string; official: boolean; on: MangaFound[] };
-export type MangaSearch = { hits: MangaHit[]; sites: number; failed: string[] };
+export type MangaSearch = { hits: MangaHit[]; sites: number; failed: string[]; skipped?: number };
+export type MangaSiteRules = { english_only: boolean; official: 'first' | 'only' | 'any'; off: string[]; order: string[] };
+export type MangaSite = { id: string; name: string; lang: string; official: boolean; off: boolean; asked: boolean; why?: string };
+export type MangaSites = { rules: MangaSiteRules; sites: MangaSite[] };
 export type MangaGot = { title: string; queued: number; have: number; total: number; by_site: Record<string, number>; failed: string[]; error?: string };
 export type MangaQueue = { going: boolean; left: number; stuck: number; now: { title: string; chapter: string; state: string; progress: number }[] };
 
@@ -62,7 +65,7 @@ export function hitLine(h: MangaHit): string {
 
 /** What a search covered: "Asked 6 sites. 1 did not answer: Broken." */
 export function searchLine(r: MangaSearch): string {
-	if (!r.sites) return 'No manga sites are switched on in the engine yet.';
+	if (!r.sites) return r.skipped ? 'Your site rules leave no site to ask. Open Sites and rules below.' : 'No manga sites are switched on in the engine yet.';
 	const asked = `Asked ${count(r.sites, 'site', 'sites')}.`;
 	return r.failed.length ? `${asked} ${r.failed.length} did not answer: ${r.failed.join(', ')}.` : asked;
 }
@@ -87,4 +90,11 @@ export function queueLine(q: MangaQueue | null): string {
 	const mins = Math.ceil((q.left * 20) / 60);
 	const wait = q.going ? ` About ${mins < 90 ? count(mins, 'minute', 'minutes') : count(Math.round(mins / 60), 'hour', 'hours')} left.` : ' The engine is paused.';
 	return `${count(q.left, 'chapter', 'chapters')} in line.${doing}${wait}${stuck}`;
+}
+
+/** The Sites panel in a few words: "asking 4 of 6, English only, official first". */
+export function sitesLine(v: MangaSites): string {
+	const asked = v.sites.filter((s) => s.asked).length;
+	const mode = v.rules.official === 'only' ? 'official only' : v.rules.official === 'any' ? 'your order' : 'official first';
+	return `Asking ${asked.toLocaleString('en-US')} of ${v.sites.length.toLocaleString('en-US')}${v.rules.english_only ? ', English only' : ''}, ${mode}`;
 }

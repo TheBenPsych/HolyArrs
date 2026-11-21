@@ -97,6 +97,8 @@ type Found struct {
 	Title string `json:"title"`
 	Cover string `json:"cover,omitempty"`
 	Site  string `json:"site"`
+	// SiteID lets the owner's site rules apply to this copy later.
+	SiteID string `json:"site_id,omitempty"`
 }
 
 // SearchSite asks one site for a title.
@@ -123,7 +125,7 @@ func (e Engine) SearchSite(ctx context.Context, s Site, q string) ([]Found, erro
 		if m.Thumb != "" {
 			cover = "/api/v1/harbor/manga/cover?id=" + strconv.Itoa(m.ID)
 		}
-		out = append(out, Found{ID: m.ID, Title: m.Title, Cover: cover, Site: s.Name})
+		out = append(out, Found{ID: m.ID, Title: m.Title, Cover: cover, Site: s.Name, SiteID: s.ID})
 	}
 	return out, nil
 }
@@ -142,6 +144,8 @@ type SearchResult struct {
 	Hits   []Hit    `json:"hits"`
 	Sites  int      `json:"sites"`
 	Failed []string `json:"failed"`
+	// Skipped counts switched-on sites the owner's rules left out.
+	Skipped int `json:"skipped"`
 }
 
 // TitleKey makes two spellings of one title match: letters and digits only.
@@ -157,12 +161,15 @@ func TitleKey(t string) string {
 
 // Search asks every switched-on site at once (six at a time, like the
 // engine itself) and puts the same title from different sites together.
-func (e Engine) Search(ctx context.Context, q string) (SearchResult, error) {
+func (e Engine) Search(ctx context.Context, q string, rules SiteRules) (SearchResult, error) {
 	res := SearchResult{Hits: []Hit{}, Failed: []string{}}
 	sites, err := e.Sites(ctx)
 	if err != nil {
 		return res, err
 	}
+	res.Skipped = len(sites)
+	sites = rules.allowed(sites)
+	res.Skipped -= len(sites)
 	res.Sites = len(sites)
 	type got struct {
 		site  Site
@@ -353,6 +360,8 @@ type Option struct {
 	MangaID  int
 	Site     string
 	Chapters []Chapter
+	// Rank is the site's place in the owner's order, 0 first.
+	Rank int
 }
 
 // Choice is what Harbor decided to download for one title.
@@ -370,7 +379,11 @@ func numKey(f float64) string { return strconv.FormatFloat(f, 'f', -1, 64) }
 // the gaps. Chapters already on the shelf (have) or already downloaded are
 // skipped, and so are site notices and the parts of a chapter that exists
 // whole.
-func Choose(opts []Option, have map[string]bool) Choice {
+func Choose(opts []Option, have map[string]bool) Choice { return ChooseBy(opts, have, true) }
+
+// ChooseBy is Choose with the say over official sites: with officialFirst
+// off, only the owner's order and the chapter counts decide.
+func ChooseBy(opts []Option, have map[string]bool, officialFirst bool) Choice {
 	c := Choice{BySite: map[string]int{}}
 	count := func(o Option) int {
 		set := map[string]bool{}
@@ -382,8 +395,11 @@ func Choose(opts []Option, have map[string]bool) Choice {
 	order := append([]Option(nil), opts...)
 	sort.SliceStable(order, func(i, j int) bool {
 		oi, oj := Official(order[i].Site, ""), Official(order[j].Site, "")
-		if oi != oj {
+		if officialFirst && oi != oj {
 			return oi
+		}
+		if order[i].Rank != order[j].Rank {
+			return order[i].Rank < order[j].Rank
 		}
 		return count(order[i]) > count(order[j])
 	})
