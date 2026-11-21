@@ -6,6 +6,7 @@ export type MangaShelfItem = {
 	series: string;
 	folder: string;
 	chapters: number;
+	volumes?: number;
 	added: number;
 	removed: number;
 	sources: string[];
@@ -30,6 +31,10 @@ const list = (xs: string[]) => (xs.length <= 1 ? (xs[0] ?? '') : `${xs.slice(0, 
 
 /** One sentence on a series: "98 chapters, 1 to 98, from MangaDex." */
 export function seriesLine(s: MangaShelfItem): string {
+	if (!s.chapters && s.volumes) {
+		const v = `${s.volumes.toLocaleString('en-US')} ${s.volumes === 1 ? 'volume' : 'volumes'}`;
+		return `${v}${s.sources.length ? `, from ${list(s.sources)}` : ''}.`;
+	}
 	if (!s.chapters) return 'No chapters on the shelf yet.';
 	const n = `${s.chapters.toLocaleString('en-US')} ${s.chapters === 1 ? 'chapter' : 'chapters'}`;
 	const span = s.first && s.last && s.first !== s.last ? `, ${s.first} to ${s.last}` : '';
@@ -43,7 +48,7 @@ export function leftGroups(s: MangaShelfItem): { why: string; names: string[] }[
 	const m = new Map<string, string[]>();
 	for (const l of s.left_out ?? []) {
 		// "A part of chapter 10, which..." and "A second copy of chapter 3; ..." each become one group.
-		const key = l.why.startsWith('A part of chapter') ? 'Parts of a chapter that is here as one whole chapter' : l.why.startsWith('A second copy') ? 'Second copies of a chapter Harbor already has' : l.why;
+		const key = l.why.startsWith('A part of chapter') ? 'Parts of a chapter that is here as one whole chapter' : l.why.startsWith('A second copy') ? 'Second copies of a chapter Harbor already has' : l.why.startsWith('A whole volume') ? 'Whole volumes whose chapters are here one by one' : l.why;
 		m.set(key, [...(m.get(key) ?? []), l.name.replace(/\.cbz$/i, '')]);
 	}
 	return [...m.entries()].map(([why, names]) => ({ why, names })).sort((a, b) => b.names.length - a.names.length);

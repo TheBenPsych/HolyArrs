@@ -409,10 +409,25 @@ func ChooseBy(opts []Option, have map[string]bool, officialFirst bool) Choice {
 	}
 	picks := map[string]pickT{}
 	var nums []float64
+	// Some sites list whole volumes ("Ch. 0 - Volume 21") beside the single
+	// chapters. They repeat those chapters, so they are only taken for a
+	// title that has no single chapters anywhere.
+	single := false
 	for _, o := range order {
 		for _, ch := range o.Chapters {
-			if ch.Number < 0 || ParseRaw("x_"+ch.Name).Junk() {
+			if r := ParseRaw("x_" + ch.Name); ch.Number >= 0 && !r.Junk() && !r.IsVolume {
+				single = true
+			}
+		}
+	}
+	for _, o := range order {
+		for _, ch := range o.Chapters {
+			r := ParseRaw("x_" + ch.Name)
+			if ch.Number < 0 || r.Junk() || (r.IsVolume && single) {
 				continue
+			}
+			if r.IsVolume {
+				ch.Number = float64(r.Volume) // a volumes-only title: one of each volume
 			}
 			k := numKey(ch.Number)
 			cur, ok := picks[k]

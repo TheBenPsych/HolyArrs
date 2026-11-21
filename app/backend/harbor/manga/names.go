@@ -60,11 +60,17 @@ type Raw struct {
 	Number Number
 	HasNum bool
 	Title  string // the chapter's own name, "" if it has none
+	// Volume is set when the file is a whole volume and not one chapter:
+	// it names a volume and no chapter (or the site's stand-in "Ch. 0").
+	Volume   int
+	IsVolume bool
 }
 
 var (
 	chapterRE = regexp.MustCompile(`(?i)(?:^|[\s_\-\[(])(?:ch(?:apter|ap)?|ep(?:isode)?|#)\.?\s*(\d+)(?:\.(\d+))?`)
-	volumeRE  = regexp.MustCompile(`(?i)\bvol(?:ume)?\.?\s*\d+(?:\.\d+)?`)
+	volumeRE  = regexp.MustCompile(`(?i)\b(?:vol(?:ume)?\.?\s*|v)(\d+)(?:\.\d+)?\b`)
+	ownedChRE = regexp.MustCompile(`(?i)\bc(\d+(?:\.\d+)?)\b`)
+	bracketRE = regexp.MustCompile(`\([^)]*\)|\[[^\]]*\]|\{[^}]*\}`)
 	bareNumRE = regexp.MustCompile(`(?:^|[^\d.])(\d+)(?:\.(\d+))?(?:[^\d]|$)`)
 	junkRE    = regexp.MustCompile(`(?i)\b(please delete|delete (this|me)|to be deleted|placeholder|notice|announcement|recruit(ing|ment)?|we are hiring|join (us|our)|hiatus (notice|announcement)|dropped|moved to|read (this|first)|test upload)\b`)
 )
@@ -81,7 +87,31 @@ func ParseRaw(base string) Raw {
 			r.Group, name = strings.TrimSpace(base[:i]), rest
 		}
 	}
-	name = strings.TrimSpace(name)
+	got := parseName(strings.TrimSpace(name))
+	got.Group = r.Group
+	return got
+}
+
+// OwnedSource is the source name for files the owner put in the drop folder.
+const OwnedSource = "Your files"
+
+// ParseOwned reads the name of a file the owner dropped in, such as
+// "Title v03 (2019) (Digital)" or "Title - c012 [group]".
+func ParseOwned(base, title string) Raw {
+	name := strings.ReplaceAll(base, "_", " ")
+	name = bracketRE.ReplaceAllString(name, " ")
+	if len(name) >= len(title) && strings.EqualFold(name[:len(title)], title) {
+		name = name[len(title):]
+	}
+	name = ownedChRE.ReplaceAllString(name, "Ch. $1")
+	r := parseName(strings.TrimSpace(spaces.ReplaceAllString(name, " ")))
+	r.Title = ""
+	return r
+}
+
+// parseName reads the chapter (or volume) out of a name with no uploader.
+func parseName(name string) Raw {
+	var r Raw
 	end := -1
 	if m := chapterRE.FindStringSubmatchIndex(name); m != nil {
 		r.Number, r.HasNum = numberOf(name[m[2]:m[3]], sub(name, m[4], m[5])), true
@@ -101,6 +131,12 @@ func ParseRaw(base string) Raw {
 		r.Title = strings.Trim(name[end:], " -:–—.")
 	} else {
 		r.Title = name
+	}
+	// A volume number with no chapter, or with the stand-in chapter 0, is a
+	// whole volume.
+	if m := volumeRE.FindStringSubmatch(name); m != nil && (!r.HasNum || (r.Number.Whole == 0 && r.Number.Frac == "")) {
+		r.Volume, _ = strconv.Atoi(m[1])
+		r.IsVolume = true
 	}
 	return r
 }

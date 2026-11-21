@@ -98,3 +98,41 @@ func TestOfficialFirstUnlessWorsePictures(t *testing.T) {
 		t.Errorf("dropped = %+v", p.Dropped)
 	}
 }
+
+func TestVolumes(t *testing.T) {
+	v := ParseRaw("unofficial_Ch. 0 - Volume 21")
+	if !v.IsVolume || v.Volume != 21 {
+		t.Fatalf("site volume entry: %+v", v)
+	}
+	if c := ParseRaw("unofficial_Vol. 3 Ch. 12"); c.IsVolume || c.Number.Whole != 12 {
+		t.Fatalf("volume and chapter together is a chapter: %+v", c)
+	}
+	if c := ParseRaw("Ch. 12 v2"); c.IsVolume || c.Number.Whole != 12 {
+		t.Fatalf("a second version is a chapter: %+v", c)
+	}
+	for name, want := range map[string]int{"My Title v03 (2019) (Digital) [grp]": 3, "My_Title_Vol.07": 7, "My Title - Volume 12": 12} {
+		if o := ParseOwned(name, "My Title"); !o.IsVolume || o.Volume != want {
+			t.Fatalf("%q: %+v", name, o)
+		}
+	}
+	if o := ParseOwned("My Title - c012 [grp]", "My Title"); o.IsVolume || o.Number.Whole != 12 {
+		t.Fatalf("owned chapter: %+v", o)
+	}
+	if o := ParseOwned("My Title 2 - Chapter 5", "My Title 2"); o.Number.Whole != 5 {
+		t.Fatalf("title with a number: %+v", o)
+	}
+
+	f := func(path, source string, r Raw) File { return File{Path: path, Source: source, Size: 100, Raw: r} }
+	// Beside single chapters, whole volumes are left out.
+	p := MakePlan("X", []File{f("a", "S", ParseRaw("Ch. 1")), f("b", "S", ParseRaw("Ch. 0 - Volume 21")), f("c", "S", ParseRaw("Ch. 0 - Volume 22"))}, DefaultRules())
+	if len(p.Kept) != 1 || len(p.Dropped) != 2 || p.Kept[0].Volume {
+		t.Fatalf("mixed: kept %+v dropped %+v", p.Kept, p.Dropped)
+	}
+	// A title with only volumes is shelved by volume, the owner's file first.
+	big := f("d", "S", ParseRaw("Ch. 0 - Volume 2"))
+	big.Size = 900
+	p = MakePlan("X", []File{f("e", OwnedSource, ParseOwned("X v02", "X")), big, f("g", OwnedSource, ParseOwned("X v01", "X"))}, DefaultRules())
+	if len(p.Kept) != 2 || p.Kept[0].Name != "X - Volume 01.cbz" || p.Kept[1].File.Path != "e" || !p.Kept[1].Volume || len(p.Dropped) != 1 {
+		t.Fatalf("volumes only: kept %+v dropped %+v", p.Kept, p.Dropped)
+	}
+}

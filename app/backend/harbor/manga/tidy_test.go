@@ -117,3 +117,37 @@ func TestTwoSitesOneSeries(t *testing.T) {
 		t.Fatalf("report = %+v", reps)
 	}
 }
+
+func TestDropFolder(t *testing.T) {
+	lib := t.TempDir()
+	drop := filepath.Join(lib, DropName, "Quiet Harbor")
+	writeCBZ(t, filepath.Join(drop, "Quiet Harbor v01 (2020) (Digital).cbz"), 100)
+	writeCBZ(t, filepath.Join(drop, "Quiet_Harbor_v02.cbz"), 100)
+	l := Librarian{Library: lib, RawRoot: filepath.Join(lib, "engine-trial"), Rules: DefaultRules()}
+	reps, err := l.TidyAll()
+	if err != nil || len(reps) != 1 {
+		t.Fatalf("reports %+v err %v", reps, err)
+	}
+	r := reps[0]
+	if r.Volumes != 2 || r.Chapters != 0 || r.Error != "" || len(r.Sources) != 1 || r.Sources[0] != OwnedSource {
+		t.Fatalf("report %+v", r)
+	}
+	for _, n := range []string{"Quiet Harbor - Volume 01.cbz", "Quiet Harbor - Volume 02.cbz", "series.json"} {
+		if _, err := os.Stat(filepath.Join(lib, "Quiet Harbor", n)); err != nil {
+			t.Fatalf("missing %s: %v", n, err)
+		}
+	}
+	// The owner's files stay where they were put.
+	if _, err := os.Stat(filepath.Join(drop, "Quiet_Harbor_v02.cbz")); err != nil {
+		t.Fatal(err)
+	}
+	sf := readSeries(filepath.Join(lib, "Quiet Harbor", "series.json"))
+	if len(sf.Volumes) != 2 || len(sf.Chapters) != 0 || sf.Volumes[1].Number != 2 {
+		t.Fatalf("series.json %+v", sf)
+	}
+	// A second run changes nothing.
+	reps, _ = l.TidyAll()
+	if reps[0].Added != 0 || reps[0].Removed != 0 || reps[0].Volumes != 2 {
+		t.Fatalf("second run %+v", reps[0])
+	}
+}
