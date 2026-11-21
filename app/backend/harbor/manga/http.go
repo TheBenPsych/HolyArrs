@@ -3,9 +3,11 @@ package manga
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -27,6 +29,7 @@ type Service struct {
 	Lib    Librarian
 	Engine string
 
+	fmu     sync.Mutex // guards the followed list on disk
 	mu      sync.Mutex
 	running bool
 	last    []Report
@@ -52,6 +55,9 @@ func FromEnv() *Service {
 func (s *Service) Tidy() ([]Report, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.fmu.Lock()
+	s.Lib.Aliases = aliases(s.Lib.loadFollowed())
+	s.fmu.Unlock()
 	reps, err := s.Lib.TidyAll()
 	s.at = time.Now()
 	if err != nil {
@@ -67,8 +73,14 @@ func (s *Service) Tidy() ([]Report, error) {
 func (s *Service) Run(ctx context.Context) {
 	t := time.NewTicker(5 * time.Minute)
 	defer t.Stop()
+	var checked time.Time
 	for {
 		_, _ = s.Tidy()
+		// New chapters: ask the sites four times a day, no more.
+		if time.Since(checked) >= 6*time.Hour {
+			checked = time.Now()
+			go s.CheckFollowed(ctx)
+		}
 		select {
 		case <-ctx.Done():
 			return
@@ -85,17 +97,25 @@ type view struct {
 	Tidied  string   `json:"tidied,omitempty"`
 	Error   string   `json:"error,omitempty"`
 	Series  []Report `json:"series"`
+	// Following is the titles Harbor keeps up with by itself.
+	Following []Followed `json:"following"`
 }
 
 func (s *Service) view() view {
 	if s == nil {
-		return view{Series: []Report{}}
+		return view{Series: []Report{}, Following: []Followed{}}
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	v := view{On: true, Library: s.Lib.Library, Raw: s.Lib.RawRoot, Engine: s.Engine, Error: s.err, Series: s.last}
 	if v.Series == nil {
 		v.Series = []Report{}
+	}
+	s.fmu.Lock()
+	v.Following = s.Lib.loadFollowed()
+	s.fmu.Unlock()
+	if v.Following == nil {
+		v.Following = []Followed{}
 	}
 	if !s.at.IsZero() {
 		v.Tidied = s.at.UTC().Format(time.RFC3339)
@@ -113,6 +133,94 @@ func (s *Service) Routes(m *http.ServeMux) {
 		}
 		writeView(w, s.view())
 	})
+	s.engineRoutes(m)
+}
+
+// engineRoutes are the routes that ask the manga engine for something.
+func (s *Service) engineRoutes(m *http.ServeMux) {
+	off := func(w http.ResponseWriter) bool {
+		if s == nil || s.Engine == "" {
+			writeJSON2(w, http.StatusServiceUnavailable, map[string]string{"error": "The manga engine is not connected to Harbor yet."})
+			return true
+		}
+		return false
+	}
+	m.HandleFunc("GET /api/v1/harbor/manga/search", func(w http.ResponseWriter, r *http.Request) {
+		if off(w) {
+			return
+		}
+		q := strings.TrimSpace(r.URL.Query().Get("q"))
+		if len(q) < 2 {
+			writeJSON2(w, http.StatusOK, SearchResult{Hits: []Hit{}, Failed: []string{}})
+			return
+		}
+		res, err := Engine{URL: s.Engine}.Search(r.Context(), q)
+		if err != nil {
+			writeJSON2(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+			return
+		}
+		writeJSON2(w, http.StatusOK, res)
+	})
+	m.HandleFunc("POST /api/v1/harbor/manga/get", func(w http.ResponseWriter, r *http.Request) {
+		if off(w) {
+			return
+		}
+		var in struct {
+			Title string  `json:"title"`
+			On    []Found `json:"on"`
+		}
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&in); err != nil || strings.TrimSpace(in.Title) == "" || len(in.On) == 0 {
+			writeJSON2(w, http.StatusBadRequest, map[string]string{"error": "Pick a title first."})
+			return
+		}
+		if len(in.On) > 8 {
+			in.On = in.On[:8]
+		}
+		// The sites can be slow; do not stop half way if the page is closed.
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 3*time.Minute)
+		defer cancel()
+		writeJSON2(w, http.StatusOK, s.Get(ctx, in.Title, in.On))
+	})
+	m.HandleFunc("GET /api/v1/harbor/manga/cover", func(w http.ResponseWriter, r *http.Request) {
+		id, err := strconv.Atoi(r.URL.Query().Get("id"))
+		if s == nil || s.Engine == "" || err != nil || id < 0 {
+			http.NotFound(w, r)
+			return
+		}
+		req, _ := http.NewRequestWithContext(r.Context(), http.MethodGet, s.Engine+"/api/v1/manga/"+strconv.Itoa(id)+"/thumbnail", nil)
+		res, err := (&http.Client{Timeout: 30 * time.Second}).Do(req)
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		defer res.Body.Close()
+		ct := res.Header.Get("Content-Type")
+		if res.StatusCode != http.StatusOK || !strings.HasPrefix(ct, "image/") {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", ct)
+		w.Header().Set("Cache-Control", "private, max-age=86400")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		_, _ = io.Copy(w, io.LimitReader(res.Body, 8<<20))
+	})
+	m.HandleFunc("GET /api/v1/harbor/manga/queue", func(w http.ResponseWriter, r *http.Request) {
+		if off(w) {
+			return
+		}
+		q, err := Engine{URL: s.Engine}.Queue(r.Context())
+		if err != nil {
+			writeJSON2(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+			return
+		}
+		writeJSON2(w, http.StatusOK, q)
+	})
+}
+
+func writeJSON2(w http.ResponseWriter, code int, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	_ = json.NewEncoder(w).Encode(v)
 }
 
 func writeView(w http.ResponseWriter, v view) {

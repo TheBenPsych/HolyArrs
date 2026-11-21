@@ -21,6 +21,9 @@ type Librarian struct {
 	// The engine keeps series under "mangas/<site>/<series>/" inside it.
 	RawRoot string
 	Rules   Rules
+	// Aliases maps another spelling of a title (as a TitleKey) to its
+	// shelf name. See follow.go.
+	Aliases map[string]string
 }
 
 // SeriesFile is the series.json Harbor writes beside the chapters. Readers
@@ -111,7 +114,11 @@ func (l Librarian) Scan() (map[string][]File, error) {
 				if time.Since(info.ModTime()) < 20*time.Second {
 					continue
 				}
-				out[sd.Name()] = append(out[sd.Name()], File{Path: filepath.Join(dir, name), Source: SourceName(site.Name()),
+				series := sd.Name()
+				if to, ok := l.Aliases[TitleKey(series)]; ok {
+					series = to
+				}
+				out[series] = append(out[series], File{Path: filepath.Join(dir, name), Source: SourceName(site.Name()),
 					Size: info.Size(), Raw: ParseRaw(strings.TrimSuffix(name, filepath.Ext(name)))})
 			}
 		}
