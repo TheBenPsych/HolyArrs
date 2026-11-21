@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { gotLine, hitLine, leftCount, leftGroups, queueLine, searchLine, seriesLine, sitesLine, type MangaShelfItem } from './manga.ts';
+import { gapsLine, gotLine, hitLine, leftCount, leftGroups, queueLine, searchLine, seriesLine, sitesLine, type MangaShelfItem } from './manga.ts';
 
 const s: MangaShelfItem = {
 	series: 'The Eminence in Shadow', folder: '/manga/The Eminence in Shadow', chapters: 95, added: 95, removed: 0, sources: ['MangaFire'], official: 0, first: '1', last: '94',
@@ -37,5 +37,11 @@ describe('manga shelf words', () => {
 		expect(sitesLine({ rules: { english_only: true, official: 'first', off: ['c'], order: [] }, sites: [site('a', true), site('b', true), site('c', false)] })).toBe('Asking 2 of 3, English only, official first');
 		expect(sitesLine({ rules: { english_only: false, official: 'any', off: [], order: [] }, sites: [site('a', true)] })).toBe('Asking 1 of 1, your order');
 		expect(searchLine({ hits: [], sites: 0, failed: [], skipped: 3 })).toBe('Your site rules leave no site to ask. Open Sites and rules below.');
+	});
+	it('says which chapters are missing', () => {
+		expect(gapsLine({ ...s, gaps: ['12', '40', '41', '42'] })).toBe('Missing chapters 12, 40 to 42.');
+		expect(gapsLine({ ...s, gaps: ['7'] })).toBe('Missing chapter 7.');
+		expect(gapsLine({ ...s, gaps: [] })).toBe('');
+		expect(gapsLine(s)).toBe('');
 	});
 });

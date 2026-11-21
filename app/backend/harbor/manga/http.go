@@ -186,6 +186,42 @@ func (s *Service) engineRoutes(m *http.ServeMux) {
 		defer cancel()
 		writeJSON2(w, http.StatusOK, s.Get(ctx, in.Title, in.On))
 	})
+	m.HandleFunc("POST /api/v1/harbor/manga/check", func(w http.ResponseWriter, r *http.Request) {
+		if off(w) {
+			return
+		}
+		var in struct {
+			Title string `json:"title"`
+		}
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&in); err != nil || strings.TrimSpace(in.Title) == "" {
+			writeJSON2(w, http.StatusBadRequest, map[string]string{"error": "Pick a title first."})
+			return
+		}
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 3*time.Minute)
+		defer cancel()
+		res, ok := s.Check(ctx, in.Title)
+		if !ok {
+			writeJSON2(w, http.StatusNotFound, map[string]string{"error": "Harbor is not keeping up with that title."})
+			return
+		}
+		writeJSON2(w, http.StatusOK, res)
+	})
+	m.HandleFunc("DELETE /api/v1/harbor/manga/follow", func(w http.ResponseWriter, r *http.Request) {
+		if s == nil {
+			http.NotFound(w, r)
+			return
+		}
+		ok, err := s.Unfollow(r.URL.Query().Get("title"))
+		if err != nil {
+			writeJSON2(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		if !ok {
+			writeJSON2(w, http.StatusNotFound, map[string]string{"error": "Harbor is not keeping up with that title."})
+			return
+		}
+		writeView(w, s.view())
+	})
 	m.HandleFunc("GET /api/v1/harbor/manga/sites", func(w http.ResponseWriter, r *http.Request) {
 		if off(w) {
 			return

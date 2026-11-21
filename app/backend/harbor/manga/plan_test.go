@@ -136,3 +136,14 @@ func TestVolumes(t *testing.T) {
 		t.Fatalf("volumes only: kept %+v dropped %+v", p.Kept, p.Dropped)
 	}
 }
+
+func TestGaps(t *testing.T) {
+	k := func(w int, frac string) Kept { return Kept{Number: Number{Whole: w, Frac: frac}} }
+	got := gaps([]Kept{k(1, ""), k(2, ""), k(4, "5"), k(6, ""), {Number: Number{Whole: 9}, Volume: true}})
+	if len(got) != 2 || got[0] != "3" || got[1] != "5" {
+		t.Fatalf("gaps %v", got) // 4.5 counts as having chapter 4; the volume is ignored
+	}
+	if g := gaps(nil); len(g) != 0 {
+		t.Fatalf("empty %v", g)
+	}
+}

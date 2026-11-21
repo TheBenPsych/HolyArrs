@@ -217,3 +217,37 @@ func (s *Service) CheckFollowed(ctx context.Context) {
 		_ = s.Lib.saveFollowed(now)
 	}
 }
+
+// Check looks for more chapters of one followed title right now.
+func (s *Service) Check(ctx context.Context, title string) (GetResult, bool) {
+	s.fmu.Lock()
+	list := s.Lib.loadFollowed()
+	s.fmu.Unlock()
+	for _, f := range list {
+		if TitleKey(f.Title) == TitleKey(title) {
+			return s.get(ctx, f), true
+		}
+	}
+	return GetResult{}, false
+}
+
+// Unfollow stops keeping up with a title. Everything already downloaded
+// stays on the shelf; Harbor just stops asking the sites for more.
+func (s *Service) Unfollow(title string) (bool, error) {
+	s.fmu.Lock()
+	defer s.fmu.Unlock()
+	list := s.Lib.loadFollowed()
+	keep := list[:0]
+	for _, f := range list {
+		if TitleKey(f.Title) != TitleKey(title) {
+			keep = append(keep, f)
+		}
+	}
+	if len(keep) == len(list) {
+		return false, nil
+	}
+	if keep == nil {
+		keep = []Followed{}
+	}
+	return true, s.Lib.saveFollowed(keep)
+}

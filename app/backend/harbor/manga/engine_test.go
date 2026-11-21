@@ -143,6 +143,20 @@ func TestSearchGetAndQueue(t *testing.T) {
 		t.Fatalf("info %v", infoFor(fl))
 	}
 
+	// Checking again finds nothing new to queue once the shelf has them.
+	if again, ok := s.Check(context.Background(), "the eminence in shadow"); !ok || again.Total != 2 {
+		t.Fatalf("check %+v %v", again, ok)
+	}
+	if _, ok := s.Check(context.Background(), "Nobody Reads This"); ok {
+		t.Fatal("check found a title Harbor does not follow")
+	}
+	if ok, err := s.Unfollow("The Eminence in Shadow"); !ok || err != nil || len(s.Lib.loadFollowed()) != 0 {
+		t.Fatalf("unfollow %v %v", ok, err)
+	}
+	if ok, _ := s.Unfollow("The Eminence in Shadow"); ok {
+		t.Fatal("unfollow twice")
+	}
+
 	q, err := e.Queue(context.Background())
 	if err != nil || !q.Going || q.Left != 2 || q.Stuck != 1 {
 		t.Fatalf("queue %+v %v", q, err)

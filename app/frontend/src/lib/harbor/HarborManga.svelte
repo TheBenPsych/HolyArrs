@@ -9,7 +9,7 @@
 	import { to } from '#lib/core/paths.ts';
 	import { api as client, message } from '#lib/core/api.ts';
 	import HarborMangaSites from './HarborMangaSites.svelte';
-	import { gotLine, hitLine, leftCount, leftGroups, queueLine, searchLine, seriesLine, type MangaGot, type MangaHit, type MangaQueue, type MangaSearch, type MangaView } from './manga.ts';
+	import { gapsLine, gotLine, hitLine, leftCount, leftGroups, queueLine, searchLine, seriesLine, type MangaGot, type MangaHit, type MangaQueue, type MangaSearch, type MangaView } from './manga.ts';
 
 	let view = $state<MangaView | null>(null);
 	let failed = $state(false);
@@ -76,6 +76,32 @@
 			got = { title: h.title, queued: 0, have: 0, total: 0, by_site: {}, failed: [], error: message(err) };
 		} finally {
 			getting = '';
+		}
+	}
+	// A followed title can be checked for more chapters, or let go.
+	let acting = $state('');
+	async function checkMore(title: string) {
+		if (acting) return;
+		acting = title;
+		try {
+			got = await client.post<MangaGot>('/harbor/manga/check', { title });
+			watchLine();
+		} catch (err) {
+			got = { title, queued: 0, have: 0, total: 0, by_site: {}, failed: [], error: message(err) };
+		} finally {
+			acting = '';
+		}
+	}
+	async function stopFollowing(title: string) {
+		if (acting) return;
+		acting = title;
+		try {
+			view = await client.del<MangaView>(`/harbor/manga/follow?title=${encodeURIComponent(title)}`);
+			got = null;
+		} catch (err) {
+			got = { title, queued: 0, have: 0, total: 0, by_site: {}, failed: [], error: message(err) };
+		} finally {
+			acting = '';
 		}
 	}
 	let timer: ReturnType<typeof setTimeout> | undefined;
@@ -154,6 +180,13 @@
 						<p class="why">{seriesLine(s)}</p>
 						{#if s.added || s.removed}<p class="new">{#if s.added}{s.added.toLocaleString('en-US')} shelved just now.{/if} {#if s.removed}{s.removed.toLocaleString('en-US')} replaced by a whole chapter.{/if}</p>{/if}
 						{#if s.error}<p class="err">{s.error}</p>{/if}
+						{#if gapsLine(s)}<p class="gap">{gapsLine(s)}</p>{/if}
+						{#if view.engine && following.has(s.series.toLowerCase())}
+							<p class="acts">
+								<button type="button" class="soft" onclick={() => checkMore(s.series)} disabled={!!acting}>{acting === s.series ? 'Checking…' : 'Check for more'}</button>
+								<button type="button" class="soft" onclick={() => stopFollowing(s.series)} disabled={!!acting}>Stop following</button>
+							</p>
+						{/if}
 						{#if s.left_out.length}
 							<details>
 								<summary>{leftCount(s)}</summary>
@@ -214,6 +247,10 @@
 		.hits li { grid-template-columns: auto 1fr; }
 		.hits .go { grid-column: 1 / -1; }
 	}
+	.gap { margin: 0; font: 600 13px/1.4 var(--font-ui); color: var(--wait-text); }
+	.acts { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 0; }
+	.soft { height: 34px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface-2); color: var(--text); font: 600 13px/1 var(--font-ui); cursor: pointer; }
+	.soft:disabled { opacity: 0.55; cursor: default; }
 	.later { margin: 6px 0 0; font: 500 13px/1.4 var(--font-ui); color: var(--text-faint); }
 	.later strong { color: var(--text-muted); font-weight: 600; }
 </style>
