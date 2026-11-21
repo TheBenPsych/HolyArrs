@@ -63,3 +63,20 @@ looks at the old apps and never changes them. Running it again updates Harbor
 and keeps its settings. `HARBOR_DRY=1` before `bash` shows what it would do
 and changes nothing; `HARBOR_MODE=full` makes the media folder writable, for
 the switch-over.
+
+## Manga engine trial
+
+`deploy/harbor/harbor-manga-trial.sh` starts Suwayomi (the community manga
+engine Harbor's Manga lane will drive, build step 9) by itself on Tower, on
+port 4567, so it can be tried before anything is built on top of it. It adds
+no manga sources and touches nothing else. Paste into the Unraid terminal:
+
+```sh
+true; curl -fsSL https://raw.githubusercontent.com/TheBenPsych/HolyArrs/main/deploy/harbor/harbor-manga-trial.sh | bash ; true
+```
+
+Remove it again (settings and downloaded manga stay on disk):
+
+```sh
+true; docker rm -f harbor-manga-engine ; true
+```
