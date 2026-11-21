@@ -203,6 +203,27 @@ else
   ok "Media folder: $MEDIA (writable)"
 fi
 
+# ------------------------------------------------------------- manga
+# The manga shelf: Harbor's librarian tidies what the manga engine
+# downloads. It gets the Manga folder on its own, writable, even in
+# watch-only mode, because nothing else on Tower uses that folder. If the
+# manga engine (harbor-manga-engine) is not installed, the shelf stays empty.
+MANGA_DIR="$MEDIA/Manga"
+MANGA_ARGS=""
+if mkdir -p "$MANGA_DIR" 2>/dev/null; then
+  chown 99:100 "$MANGA_DIR" 2>/dev/null
+  MANGA_ARGS="-v $MANGA_DIR:/manga -e HARBOR_MANGA_DIR=/manga"
+  ENGINE_PORT="$(docker port harbor-manga-engine 4567/tcp 2>/dev/null | sed -n 's/.*:\([0-9][0-9]*\)$/\1/p' | head -n1)"
+  if [ -n "$ENGINE_PORT" ]; then
+    MANGA_ARGS="$MANGA_ARGS -e HARBOR_MANGA_ENGINE=http://$HOST_IP:$ENGINE_PORT"
+    ok "Manga: Harbor tidies $MANGA_DIR and found the manga engine on port $ENGINE_PORT"
+  else
+    ok "Manga: Harbor tidies $MANGA_DIR (the manga engine is not installed yet)"
+  fi
+else
+  note "Manga: could not make $MANGA_DIR, so the manga shelf stays off"
+fi
+
 # --------------------------------------------- is the spot free?
 OLD_IMAGE="$(docker inspect -f '{{.Config.Image}}' "$NAME" 2>/dev/null)"
 if [ -n "$OLD_IMAGE" ]; then
@@ -235,6 +256,7 @@ chown 99:100 "$CONFIG" 2>/dev/null
 
 [ -z "$OLD_IMAGE" ] || docker rm -f "$NAME" >/dev/null 2>&1
 
+# shellcheck disable=SC2086
 docker run -d \
   --name "$NAME" \
   --restart unless-stopped \
@@ -244,6 +266,7 @@ docker run -d \
   -e HARBOR_WATCH_ONLY="$WATCH_ONLY" \
   -v "$CONFIG:/config" \
   -v "$MEDIA_MOUNT" \
+  $MANGA_ARGS \
   -l "net.unraid.docker.webui=http://[IP]:[PORT:6262]/" \
   -l "net.unraid.docker.icon=$ICON" \
   -l "harbor.mode=$MODE" \

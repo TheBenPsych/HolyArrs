@@ -89,6 +89,7 @@
 		<span class="grow"></span>
 		<a class="tool" class:on={byName} href={azHref()} data-testid="harbor-az" title={byName ? 'Back to the usual order' : 'Sort A to Z with a letter jump'}>A to Z</a>
 		{#if kind === 'movie'}<a class="tool" href={to('/library/collections')}>Collections</a>{/if}
+		{#if manage}<a class="tool" href={to('/library/manga')} data-testid="harbor-manga-tab">Manga</a>{/if}
 		{#if manage}<a class="tool tidy" href={to('/library/tidy')} data-testid="harbor-tidy-tab">Tidy{#if tidy.length}<span class="n">{tidy.length}</span>{/if}</a>{/if}
 	</nav>
 
