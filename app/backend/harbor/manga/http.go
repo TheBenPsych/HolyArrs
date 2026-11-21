@@ -154,7 +154,10 @@ func (s *Service) engineRoutes(m *http.ServeMux) {
 			writeJSON2(w, http.StatusOK, SearchResult{Hits: []Hit{}, Failed: []string{}})
 			return
 		}
-		res, err := Engine{URL: s.Engine}.Search(r.Context(), q)
+		s.fmu.Lock()
+		rules := s.Lib.loadSiteRules()
+		s.fmu.Unlock()
+		res, err := Engine{URL: s.Engine}.Search(r.Context(), q, rules)
 		if err != nil {
 			writeJSON2(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
 			return
@@ -180,6 +183,40 @@ func (s *Service) engineRoutes(m *http.ServeMux) {
 		ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 3*time.Minute)
 		defer cancel()
 		writeJSON2(w, http.StatusOK, s.Get(ctx, in.Title, in.On))
+	})
+	m.HandleFunc("GET /api/v1/harbor/manga/sites", func(w http.ResponseWriter, r *http.Request) {
+		if off(w) {
+			return
+		}
+		v, err := s.Sites(r.Context())
+		if err != nil {
+			writeJSON2(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+			return
+		}
+		writeJSON2(w, http.StatusOK, v)
+	})
+	m.HandleFunc("PUT /api/v1/harbor/manga/sites", func(w http.ResponseWriter, r *http.Request) {
+		if off(w) {
+			return
+		}
+		var in SiteRules
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&in); err != nil {
+			writeJSON2(w, http.StatusBadRequest, map[string]string{"error": "Harbor could not read those rules."})
+			return
+		}
+		s.fmu.Lock()
+		err := s.Lib.saveSiteRules(in)
+		s.fmu.Unlock()
+		if err != nil {
+			writeJSON2(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		v, err := s.Sites(r.Context())
+		if err != nil {
+			writeJSON2(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+			return
+		}
+		writeJSON2(w, http.StatusOK, v)
 	})
 	m.HandleFunc("GET /api/v1/harbor/manga/cover", func(w http.ResponseWriter, r *http.Request) {
 		id, err := strconv.Atoi(r.URL.Query().Get("id"))

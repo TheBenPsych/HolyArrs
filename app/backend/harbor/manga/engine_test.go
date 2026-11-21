@@ -87,7 +87,7 @@ func TestSearchGetAndQueue(t *testing.T) {
 	srv := fakeEngine(t, &queued)
 	defer srv.Close()
 	e := Engine{URL: srv.URL}
-	res, err := e.Search(context.Background(), "eminence in shadow")
+	res, err := e.Search(context.Background(), "eminence in shadow", DefaultSiteRules())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,5 +121,31 @@ func TestSearchGetAndQueue(t *testing.T) {
 	q, err := e.Queue(context.Background())
 	if err != nil || !q.Going || q.Left != 2 || q.Stuck != 1 {
 		t.Fatalf("queue %+v %v", q, err)
+	}
+}
+
+func TestSiteRules(t *testing.T) {
+	sites := []Site{{ID: "1", Name: "MangaFire", Lang: "en"}, {ID: "2", Name: "MANGA Plus", Lang: "en"}, {ID: "3", Name: "MangaDex", Lang: "es"}, {ID: "4", Name: "Comick", Lang: "all"}}
+	r := DefaultSiteRules()
+	if got := r.allowed(sites); len(got) != 2 {
+		t.Fatalf("english only kept %v", got)
+	}
+	r.Official = "only"
+	if got := r.allowed(sites); len(got) != 1 || got[0].ID != "2" {
+		t.Fatalf("official only kept %v", got)
+	}
+	r = SiteRules{Official: "any", Off: []string{"1"}, Order: []string{"4", "2"}}.clean()
+	v := sitesView(sites, r)
+	if v.Sites[0].ID != "4" || v.Sites[1].ID != "2" || len(r.allowed(sites)) != 3 {
+		t.Fatalf("view %+v", v.Sites)
+	}
+	// The owner's order beats chapter counts; "any" lets a fan site lead.
+	a := Option{MangaID: 1, Site: "MangaFire", Rank: 0, Chapters: []Chapter{ch(1, 1, "Ch. 1")}}
+	b := Option{MangaID: 2, Site: "MANGA Plus", Rank: 1, Chapters: []Chapter{ch(2, 1, "#1"), ch(3, 2, "#2")}}
+	if c := ChooseBy([]Option{b, a}, nil, false); c.IDs[0] != 1 || c.IDs[1] != 3 {
+		t.Fatalf("any: %v", c.IDs)
+	}
+	if c := ChooseBy([]Option{b, a}, nil, true); c.IDs[0] != 2 {
+		t.Fatalf("first: %v", c.IDs)
 	}
 }
