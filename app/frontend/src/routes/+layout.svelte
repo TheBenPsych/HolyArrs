@@ -7,7 +7,7 @@
 	import { to, appPath } from '#lib/core/paths.ts';
 	import '../app.css';
 	import { onMount, tick, type Snippet } from 'svelte';
-	import { watchTitles } from '#lib/harbor/index.ts';
+	import { watchTitles, harborNav, harborTabs } from '#lib/harbor/index.ts';
 	import { navigating, page } from '$app/state';
 	import { afterNavigate, beforeNavigate, goto, onNavigate, preloadCode } from '$app/navigation';
 	import { hideReconnecting, loaderReady, navEnded, navWatch, showReconnecting } from '#lib/core/loader.ts';
@@ -99,7 +99,7 @@
 			.map(([k]) => k)
 	);
 	const sections = $derived(
-		buildNav({
+		harborNav(buildNav({
 			allowed: (n) => allowed(n),
 			off: (href) => !!offPartName(partsNow.answer, href),
 			kinds,
@@ -109,7 +109,7 @@
 			unread: inbox.unread,
 			kid: session.kid,
 			settingsAttention
-		})
+		}))
 	);
 	const allItems = $derived(sections.flatMap((s) => s.items));
 	const path = $derived(appPath(page.url.pathname));
@@ -298,7 +298,7 @@
 		const tabbed = ['/', '/explore', '/library', '/search', '/requests'];
 		const elsewhere = !tabbed.some((h) => (h === '/' ? path === '/' : path === h || path.startsWith(h + '/')));
 		list.push({ label: manager ? t('frame.nav.manage') : t('frame.layout.more'), icon: manager ? 'inbox' : 'more', current: elsewhere, dot: tabReasons.length > 0, onclick: () => (moreOpen = true) });
-		return list;
+		return harborTabs(list, sections, to, path);
 	});
 
 	const roleWord = $derived(({ owner: t('frame.layout.owner'), admin: t('frame.layout.admin'), member: t('frame.layout.member') } as Record<string, string>)[session.s.role] ?? t('frame.layout.member'));

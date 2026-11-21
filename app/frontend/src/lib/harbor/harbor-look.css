@@ -123,3 +123,32 @@
 	text-transform: uppercase;
 	letter-spacing: 0.04em;
 }
+
+/* Roomier spacing (design harbor-2: HolyArrs felt "too plain and scrunched").
+   Wider page margins, more air between rows of posters, a slightly taller
+   top bar and sidebar. Only sizes change here; every page keeps its layout. */
+:root {
+	--gutter: clamp(20px, 4vw, 56px);
+	--shelf-gap: 22px;
+	--sidebar-expanded: 276px;
+	--topbar: 60px;
+}
+
+/* The five places (Today, Board, Explore, Shelves, Tower) read like chart
+   headings and get the most room; HolyArrs's own pages below them, under
+   More and their usual groups, stay quieter. See lib/harbor/nav.ts. */
+.ui-sidebar .list > .section:first-of-type li .ui-sbi {
+	min-height: 46px;
+	font-family: var(--font-display);
+	font-size: 17px;
+	font-weight: 600;
+	letter-spacing: 0.01em;
+}
+.ui-sidebar .list > .section:first-of-type ul { gap: 4px; }
+.ui-sidebar .list > .section + .section { margin-top: 22px; }
+.ui-sidebar .list > .section:not(:first-of-type) li .ui-sbi { min-height: 38px; font-size: 14px; color: var(--text-muted); }
+.ui-sidebar .list > .section:not(:first-of-type) li .ui-sbi[aria-current='page'] { color: var(--text); }
+/* A page-wide .label style would otherwise shrink these to 13px. */
+.ui-sidebar .list > .section li .ui-sbi span.label { font: inherit; letter-spacing: inherit; }
+.ui-sidebar .sec { font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.06em; font-size: 12px; }
+.ui-sidebar.collapsed .list > .section + .section { margin-top: 8px; }
