@@ -25,6 +25,7 @@
 	import { homeFacts, homeGreeting, homeNews } from './home-line.ts';
 	import type { Health, HealthChecks } from '#lib/health/index.ts';
 	import { onMount } from 'svelte';
+	import { HarborToday } from '#lib/harbor/index.ts'; // Harbor
 	import { to } from '#lib/core/paths.ts';
 	import { partOff } from '#lib/mediafiles/index.ts';
 	import { api } from '#lib/core/api.ts';
@@ -359,6 +360,7 @@
 		</div>
 	</div>
 
+	<HarborToday /><!-- Harbor: Today's sentence, what needs you, today's arrivals -->
 	{#if failed && !home && loaded}
 		<LoadError hasData={false} message={t('home.couldNotLoadHome')} onretry={retry} busy={retrying} />
 	{:else}

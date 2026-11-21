@@ -27,6 +27,7 @@ export interface HarborSection<I extends HarborItem = HarborItem> {
 
 export const HARBOR_PLACES = ['Today', 'Board', 'Explore', 'Shelves', 'Tower'] as const;
 export const HARBOR_MORE = 'More';
+export const HARBOR_BOARD = '/board';
 
 const base = (href: string) => href.split('?')[0];
 
@@ -46,6 +47,7 @@ export function harborNav<I extends HarborItem, S extends HarborSection<I>>(sect
 	};
 	const place = (from: I | undefined, label: string, icon: string, also: string[]): I | null =>
 		from ? ({ ...from, href: base(from.href), label, icon, also } as I) : null;
+	const board = (from: I | undefined): I | null => (from ? ({ ...from, href: HARBOR_BOARD, label: 'Board', icon: 'requests', also: [] } as I) : null);
 
 	const home = find('/');
 	const requests = find('/requests');
@@ -60,9 +62,11 @@ export function harborNav<I extends HarborItem, S extends HarborSection<I>>(sect
 	const tower = towerFrom ? place({ ...towerFrom, dot: settings?.dot ?? towerFrom.dot } as I, 'Tower', 'tools', ['/settings', '/plugins', '/health']) : null;
 
 	const five = [
-		place(home, 'Today', 'calendarDay', []),
-		// Board is the requests page; someone who cannot ask follows their downloads there instead.
-		place(requests ?? downloads, 'Board', 'requests', requests ? ['/requests'] : ['/downloads']),
+		// Today is the home page; the Calendar belongs to it (its arrivals line links there).
+		place(home, 'Today', 'calendarDay', ['/calendar']),
+		// Board is Harbor's own page (lib/harbor/HarborBoard). It shows for anyone who may see requests or downloads,
+		// and borrows that page's badge. The Requests and Downloads pages stay under More for the detail.
+		board(requests ?? downloads),
 		place(explore, 'Explore', 'compass', ['/popular', '/search']),
 		// Shelves opens the whole Library; the badge of a single kind does not apply.
 		library ? ({ ...place(library, 'Shelves', 'library', ['/library', '/title'])!, badge: undefined, badgeLabel: undefined, ring: undefined, dot: undefined } as I) : null,

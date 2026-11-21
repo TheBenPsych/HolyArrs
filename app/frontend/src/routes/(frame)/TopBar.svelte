@@ -4,6 +4,7 @@
 	import { SearchField, topBar, cameFrom, pageLabel, type CameFrom } from '#lib/discover/index.ts';
 	import { afterNavigate } from '$app/navigation';
 	import { topCrumbs } from '#lib/core/top-crumbs.svelte.ts';
+	import { HarborAsk } from '#lib/harbor/index.ts'; // Harbor
 
 	// The 56px translucent bar above the content (tablet and desktop): sidebar toggle when collapsed, back and forward on detail pages, and the one search field in the centre.
 	let {
@@ -78,7 +79,7 @@
 			</nav>
 		{/if}
 	</div>
-	<div class="centre"><SearchField {searchKey} /></div>
+	<div class="centre"><HarborAsk><SearchField {searchKey} /></HarborAsk></div>
 	<div class="trail"></div>
 </header>
 
