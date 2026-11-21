@@ -1,7 +1,7 @@
 <script module lang="ts">
 	// Back to Search reuses what was on screen: the answers kept when Search was left, for that history entry and address only (a fresh visit loads anew).
 	import { historyIndex, SearchField, BrowseTile, MusicBrowseSections, MosaicReveal, browseCols, browseHref, BROWSE_ROWS, readCategory, readMood, shownCount, tileHue, SHELF_MIN, live, libraryNote, rankTop, readScope, scopeAddress, type SearchScope, describes, found, plainPath, understood, type PlainAnswer } from '#lib/discover/index.ts';
-	import { HarborAsk } from '#lib/harbor/index.ts'; // Harbor
+	import { HarborAsk, HarborMangaRow } from '#lib/harbor/index.ts'; // Harbor
 	let kept: { key: string; data: unknown } | null = null;
 	function entryKey(): string {
 		if (typeof history === 'undefined') return '';
@@ -492,6 +492,7 @@
 		</div>
 	{/if}
 
+	{#if manage && scope === 'all'}<HarborMangaRow term={searchField.term} />{/if}<!-- Harbor: manga -->
 	<div class="results" class:holding aria-live="polite" aria-busy={busy}>
 		{#if waiting}<p class="sr-only">{t('discover.search.searchingFor', { v: searchField.term.trim() })}</p>{/if}
 		{#if plainShown && plainAns}
