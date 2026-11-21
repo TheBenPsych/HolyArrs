@@ -195,9 +195,11 @@ fi
 [ -d "$MEDIA" ] || stop "The media folder $MEDIA does not exist."
 if [ "$MODE" = "watch" ]; then
   MEDIA_MOUNT="$MEDIA:/data:ro"
+  WATCH_ONLY=1
   ok "Media folder: $MEDIA (read-only: Harbor can look, it cannot change a file)"
 else
   MEDIA_MOUNT="$MEDIA:/data"
+  WATCH_ONLY=0
   ok "Media folder: $MEDIA (writable)"
 fi
 
@@ -239,6 +241,7 @@ docker run -d \
   -p "$PORT:6262" \
   -e PUID=99 -e PGID=100 -e UMASK=022 \
   -e TZ="$TZ_NAME" \
+  -e HARBOR_WATCH_ONLY="$WATCH_ONLY" \
   -v "$CONFIG:/config" \
   -v "$MEDIA_MOUNT" \
   -l "net.unraid.docker.webui=http://[IP]:[PORT:6262]/" \

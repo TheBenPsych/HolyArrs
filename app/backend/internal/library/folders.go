@@ -32,7 +32,7 @@ type Health struct {
 
 // Usable reports whether files can be placed in the folder at all. A folder
 // without hardlinks still works: files are copied.
-func (h Health) Usable() bool { return h.State == "ok" || h.State == "no_hardlink" }
+func (h Health) Usable() bool { return h.State == "ok" || h.State == "no_hardlink" || watchOnly(h) }
 
 // CheckFolder looks at a Library folder: it must exist, take writes, and
 // take hardlinks from each Downloader folder in downloadPaths. Free space
