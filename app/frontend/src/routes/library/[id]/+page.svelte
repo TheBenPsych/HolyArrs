@@ -51,6 +51,7 @@
 	import type { EventPage, EventRecord, ReleasePage, ReleaseView, TitleView, VersionView } from '#lib/core/types.ts';
 	import { t as tr } from '#lib/core/i18n/i18n.svelte.ts';
 	import { WatchLinks } from '#lib/mediaservers/index.ts';
+	import { HarborTitleStrip } from '#lib/harbor/index.ts'; // Harbor
 
 	const id = $derived(Number(page.params.id));
 	const libraryBack = $derived.by(() => {
@@ -291,6 +292,7 @@
 {:else}
 <PageLoader loading={!title} label={tr('library.title.loading')} onretry={() => load()}>
 {#if title}
+<HarborTitleStrip {title} /><!-- Harbor: where it stands, season blocks, More -->
 {#if shared(title)}
 	{#key title.id}<TitlePage kind={title.kind} tmdb={extrasIdOf(title)} libraryId={title.id} backHref={page.url.searchParams.has('returnTo') ? libraryBack : undefined} />{/key}
 {:else if title.kind === 'show'}
