@@ -34,6 +34,7 @@ type Librarian struct {
 type SeriesFile struct {
 	Title    string         `json:"title"`
 	Chapters []SeriesEntry  `json:"chapters"`
+	Volumes  []SeriesEntry  `json:"volumes,omitempty"`
 	Total    int            `json:"total_chapters,omitempty"`
 	Left     []SeriesLeft   `json:"harbor_left_out,omitempty"`
 	Tidied   string         `json:"harbor_tidied,omitempty"`
@@ -64,6 +65,7 @@ type Report struct {
 	Series   string       `json:"series"`
 	Folder   string       `json:"folder"`
 	Chapters int          `json:"chapters"`
+	Volumes  int          `json:"volumes"`
 	Added    int          `json:"added"`
 	Removed  int          `json:"removed"`
 	Sources  []string     `json:"sources"`
@@ -78,6 +80,7 @@ type Report struct {
 // chapter files, across all sites.
 func (l Librarian) Scan() (map[string][]File, error) {
 	out := map[string][]File{}
+	l.scanDrop(out)
 	root := filepath.Join(l.RawRoot, "mangas")
 	sites, err := os.ReadDir(root)
 	if err != nil {
@@ -129,6 +132,47 @@ func (l Librarian) Scan() (map[string][]File, error) {
 	return out, nil
 }
 
+// DropName is the folder inside the library where the owner puts manga
+// files they already have: one folder per title, named after the title.
+// The underscore keeps readers of the shelf from listing it.
+const DropName = "_drop"
+
+// scanDrop adds the owner's own files. They are linked into the shelf like
+// downloads and never moved or removed.
+func (l Librarian) scanDrop(out map[string][]File) {
+	root := filepath.Join(l.Library, DropName)
+	titles, err := os.ReadDir(root)
+	if err != nil {
+		return
+	}
+	for _, td := range titles {
+		if !td.IsDir() || strings.HasPrefix(td.Name(), ".") {
+			continue
+		}
+		dir := filepath.Join(root, td.Name())
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			continue
+		}
+		series := td.Name()
+		if to, ok := l.Aliases[TitleKey(series)]; ok {
+			series = to
+		}
+		for _, e := range entries {
+			name := e.Name()
+			if e.IsDir() || !strings.EqualFold(filepath.Ext(name), ".cbz") || strings.HasPrefix(name, ".") {
+				continue
+			}
+			info, err := e.Info()
+			if err != nil || info.Size() == 0 || time.Since(info.ModTime()) < 20*time.Second {
+				continue // empty, or still being copied in
+			}
+			out[series] = append(out[series], File{Path: filepath.Join(dir, name), Source: OwnedSource, Size: info.Size(),
+				Raw: ParseOwned(strings.TrimSuffix(name, filepath.Ext(name)), td.Name())})
+		}
+	}
+}
+
 // TidyAll tidies every series and reports on each, by name.
 func (l Librarian) TidyAll() ([]Report, error) {
 	all, err := l.Scan()
@@ -165,12 +209,19 @@ func (l Librarian) tidy(p Plan) Report {
 	}
 	old := readSeries(filepath.Join(folder, "series.json"))
 	mine := map[string]SeriesEntry{}
-	for _, c := range old.Chapters {
+	for _, c := range append(append([]SeriesEntry{}, old.Chapters...), old.Volumes...) {
 		mine[c.File] = c
 	}
-	sf := SeriesFile{Title: p.Series, Total: len(p.Kept), Left: rep.LeftOut, Tidied: time.Now().UTC().Format(time.RFC3339)}
+	sf := SeriesFile{Title: p.Series, Left: rep.LeftOut, Tidied: time.Now().UTC().Format(time.RFC3339)}
 	seen := map[string]bool{}
 	want := map[string]bool{}
+	add := func(k Kept, e SeriesEntry) {
+		if k.Volume {
+			sf.Volumes = append(sf.Volumes, e)
+		} else {
+			sf.Chapters = append(sf.Chapters, e)
+		}
+	}
 	for _, k := range p.Kept {
 		want[k.Name] = true
 		dst := filepath.Join(folder, k.Name)
@@ -179,7 +230,7 @@ func (l Librarian) tidy(p Plan) Report {
 		if fresh {
 			if _, made := mine[k.Name]; !made && exists(dst) {
 				// Someone's own file already has this name: it wins.
-				sf.Chapters = append(sf.Chapters, SeriesEntry{Number: k.Number.Float(), File: k.Name, Source: "Your own file"})
+				add(k, SeriesEntry{Number: k.Number.Float(), File: k.Name, Source: "Your own file"})
 				continue
 			}
 			if err := place(k.File.Path, dst); err != nil {
@@ -196,7 +247,7 @@ func (l Librarian) tidy(p Plan) Report {
 			rep.Official++
 		}
 		uploader := k.File.Raw.Group
-		sf.Chapters = append(sf.Chapters, SeriesEntry{Number: k.Number.Float(), File: k.Name, Title: k.Title, Source: k.File.Source,
+		add(k, SeriesEntry{Number: k.Number.Float(), File: k.Name, Title: k.Title, Source: k.File.Source,
 			Official: k.Official, Uploader: uploader, Raw: k.File.Path, Size: k.File.Size})
 	}
 	for name, c := range mine {
@@ -206,7 +257,10 @@ func (l Librarian) tidy(p Plan) Report {
 			}
 		}
 	}
-	rep.Chapters = len(sf.Chapters)
+	rep.Chapters, rep.Volumes, sf.Total = len(sf.Chapters), len(sf.Volumes), len(sf.Chapters)
+	if sf.Chapters == nil {
+		sf.Chapters = []SeriesEntry{}
+	}
 	if len(p.Kept) > 0 {
 		rep.First, rep.Last = p.Kept[0].Number.String(), p.Kept[len(p.Kept)-1].Number.String()
 	}
@@ -278,7 +332,7 @@ func readSeries(path string) SeriesFile {
 	}
 	_ = json.Unmarshal(b, &sf)
 	_ = json.Unmarshal(b, &sf.Extra)
-	for _, k := range []string{"title", "chapters", "total_chapters", "harbor_left_out", "harbor_tidied"} {
+	for _, k := range []string{"title", "chapters", "volumes", "total_chapters", "harbor_left_out", "harbor_tidied"} {
 		delete(sf.Extra, k)
 	}
 	return sf

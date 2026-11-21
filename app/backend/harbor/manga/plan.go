@@ -21,6 +21,8 @@ type Kept struct {
 	File     File
 	Official bool
 	Name     string // the tidy file name
+	// Volume marks a whole volume; Number then holds the volume number.
+	Volume bool
 }
 
 // Dropped is a raw file left out of the tidy library, with the reason in
@@ -62,8 +64,11 @@ func MakePlan(series string, files []File, rules Rules) Plan {
 	p := Plan{Series: series}
 	byNum := map[string][]File{}
 	var order []Number
+	var vols []File
 	for _, f := range files {
 		switch {
+		case f.Raw.IsVolume && !f.Raw.Junk():
+			vols = append(vols, f)
 		case f.Raw.Junk():
 			p.Dropped = append(p.Dropped, Dropped{f, "A notice from the site, not a chapter"})
 		case !f.Raw.HasNum:
@@ -121,6 +126,33 @@ func MakePlan(series string, files []File, rules Rules) Plan {
 		p.Kept = append(p.Kept, Kept{Number: n, Title: best.Raw.Title, File: best, Official: Official(best.Source, best.Raw.Group),
 			Name: fmt.Sprintf("%s - Chapter %s.cbz", safe, n.Padded(width))})
 	}
+	// Whole volumes repeat the chapters inside them, so they are only
+	// shelved for a title that has no single chapters at all.
+	if len(p.Kept) > 0 {
+		for _, f := range vols {
+			p.Dropped = append(p.Dropped, Dropped{f, fmt.Sprintf("A whole volume (%d); its chapters are here one by one", f.Raw.Volume)})
+		}
+		return p
+	}
+	byVol := map[int][]File{}
+	var nums []int
+	for _, f := range vols {
+		if _, seen := byVol[f.Raw.Volume]; !seen {
+			nums = append(nums, f.Raw.Volume)
+		}
+		byVol[f.Raw.Volume] = append(byVol[f.Raw.Volume], f)
+	}
+	sort.Ints(nums)
+	for _, n := range nums {
+		best := pick(byVol[n], rules)
+		for _, f := range byVol[n] {
+			if f.Path != best.Path {
+				p.Dropped = append(p.Dropped, Dropped{f, fmt.Sprintf("A second copy of volume %d; kept the one from %s", n, label(best))})
+			}
+		}
+		p.Kept = append(p.Kept, Kept{Number: Number{Whole: n}, File: best, Official: Official(best.Source, best.Raw.Group), Volume: true,
+			Name: fmt.Sprintf("%s - Volume %s.cbz", safe, Number{Whole: n}.Padded(2))})
+	}
 	return p
 }
 
@@ -141,7 +173,9 @@ func pick(group []File, rules Rules) File {
 	}
 	score := func(f File) (int, int64) {
 		rank := 0
-		if Official(f.Source, f.Raw.Group) {
+		if f.Source == OwnedSource {
+			rank = 2000 // the owner's own file always wins
+		} else if Official(f.Source, f.Raw.Group) {
 			if bestFan == 0 || float64(f.Size) >= rules.OfficialFloor*float64(bestFan) {
 				rank = 1000
 			}

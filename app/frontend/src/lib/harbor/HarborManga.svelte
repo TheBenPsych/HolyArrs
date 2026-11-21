@@ -164,7 +164,7 @@
 							</details>
 						{/if}
 					</div>
-					<span class="count">{s.chapters.toLocaleString('en-US')}</span>
+					<span class="count">{(s.chapters || s.volumes || 0).toLocaleString('en-US')}</span>
 				</li>
 			{/each}
 		</ul>
@@ -173,6 +173,7 @@
 			<p class="later">Harbor looks for new chapters four times a day for: {view.following.map((f) => f.title).join(', ')}.</p>
 		{/if}
 		<p class="later">On Tower the tidy files are in the media folder under <strong>Manga</strong>, one folder for each title. Harbor only asks the sites you switched on in the engine.</p>
+		<p class="later">Already have manga files? In that Manga folder, open <strong>_drop</strong>, make a folder named after the title and put the .cbz files in it. Harbor shelves them within five minutes and leaves your files where they are.</p>
 	{/if}
 </section>
 

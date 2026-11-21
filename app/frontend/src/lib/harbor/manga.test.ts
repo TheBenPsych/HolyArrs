@@ -15,6 +15,7 @@ describe('manga shelf words', () => {
 		expect(seriesLine(s)).toBe('95 chapters, 1 to 94, from MangaFire.');
 		expect(seriesLine({ ...s, chapters: 1, first: '1', last: '1', sources: ['MangaDex', 'VIZ'], official: 1 })).toBe('1 chapter, from MangaDex and VIZ. All official.');
 		expect(seriesLine({ ...s, chapters: 0 })).toBe('No chapters on the shelf yet.');
+		expect(seriesLine({ ...s, chapters: 0, volumes: 12, sources: ['Your files'] })).toBe('12 volumes, from Your files.');
 	});
 	it('groups what was left out by reason', () => {
 		const g = leftGroups(s);
