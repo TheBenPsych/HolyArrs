@@ -6,9 +6,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import Icon from '#lib/ui/Icon.svelte';
-	import { api } from '#lib/core/api.ts';
 	import { to } from '#lib/core/paths.ts';
-	import { leftCount, leftGroups, seriesLine, type MangaView } from './manga.ts';
+	import { api as client, message } from '#lib/core/api.ts';
+	import { gotLine, hitLine, leftCount, leftGroups, queueLine, searchLine, seriesLine, type MangaGot, type MangaHit, type MangaQueue, type MangaSearch, type MangaView } from './manga.ts';
 
 	let view = $state<MangaView | null>(null);
 	let failed = $state(false);
@@ -16,12 +16,12 @@
 	const total = $derived((view?.series ?? []).reduce((n, s) => n + s.chapters, 0));
 
 	onMount(() => {
-		api.get<MangaView>('/harbor/manga').then((v) => (view = v), () => (failed = true));
+		client.get<MangaView>('/harbor/manga').then((v) => (view = v), () => (failed = true));
 	});
 	async function tidyNow() {
 		busy = true;
 		try {
-			view = await api.post<MangaView>('/harbor/manga/tidy');
+			view = await client.post<MangaView>('/harbor/manga/tidy');
 			failed = false;
 		} catch {
 			failed = true;
@@ -29,6 +29,60 @@
 			busy = false;
 		}
 	}
+
+	// Find a title on every site the engine has switched on, and get it.
+	let q = $state('');
+	let looking = $state(false);
+	let found = $state<MangaSearch | null>(null);
+	let findError = $state('');
+	let getting = $state('');
+	let got = $state<MangaGot | null>(null);
+	let line = $state<MangaQueue | null>(null);
+	const following = $derived(new Set((view?.following ?? []).map((f) => f.title.toLowerCase())));
+
+	async function find(e: SubmitEvent) {
+		e.preventDefault();
+		const text = q.trim();
+		if (text.length < 2 || looking) return;
+		looking = true;
+		findError = '';
+		got = null;
+		try {
+			found = await client.get<MangaSearch>(`/harbor/manga/search?q=${encodeURIComponent(text)}`);
+		} catch (err) {
+			found = null;
+			findError = message(err);
+		} finally {
+			looking = false;
+		}
+	}
+	async function get(h: MangaHit) {
+		if (getting) return;
+		getting = h.key;
+		try {
+			got = await client.post<MangaGot>('/harbor/manga/get', { title: h.title, on: h.on });
+			view = await client.get<MangaView>('/harbor/manga');
+			watchLine();
+		} catch (err) {
+			got = { title: h.title, queued: 0, have: 0, total: 0, by_site: {}, failed: [], error: message(err) };
+		} finally {
+			getting = '';
+		}
+	}
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	async function watchLine() {
+		clearTimeout(timer);
+		try {
+			line = await client.get<MangaQueue>('/harbor/manga/queue');
+		} catch {
+			line = null;
+		}
+		if (line?.left) timer = setTimeout(watchLine, 15000);
+	}
+	$effect(() => {
+		if (view?.on && view.engine) watchLine();
+		return () => clearTimeout(timer);
+	});
 	const when = (iso?: string) => (iso ? new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '');
 </script>
 
@@ -54,6 +108,34 @@
 			{/if}
 			{#if view.tidied}<span class="at">Last tidied at {when(view.tidied)}.</span>{/if}
 		</p>
+		{#if view.engine}
+			<form class="find" onsubmit={find} data-testid="harbor-manga-find">
+				<input type="search" bind:value={q} placeholder="Find a manga on every site" aria-label="Find a manga on every site" autocomplete="off" />
+				<button type="submit" class="go" disabled={looking || q.trim().length < 2}>{looking ? 'Asking the sites…' : 'Find'}</button>
+			</form>
+			{#if queueLine(line)}<p class="line" data-testid="harbor-manga-line">{queueLine(line)}</p>{/if}
+			{#if got}<p class="line" class:bad={!!got.error}>{gotLine(got)} {#if got.queued}Chapters appear on the shelf below as they arrive.{/if}</p>{/if}
+			{#if findError}<p class="empty bad">The search did not work: {findError}</p>{/if}
+			{#if found}
+				<p class="at">{searchLine(found)}{#if found.sites && !found.hits.length} Nothing found for that name.{/if}</p>
+				<ul class="hits">
+					{#each found.hits as h (h.key)}
+						<li>
+							{#if h.cover}<img src={to(h.cover)} alt="" loading="lazy" width="56" height="80" />{:else}<span class="nocover" aria-hidden="true">{h.title.slice(0, 1)}</span>{/if}
+							<div class="words">
+								<p class="what">{h.title}</p>
+								<p class="why">{hitLine(h)}{#if h.official}{' '}<strong>Has an official release.</strong>{/if}</p>
+							</div>
+							<button type="button" class="go" onclick={() => get(h)} disabled={!!getting}>
+								{getting === h.key ? 'Reading the chapter lists…' : following.has(h.title.toLowerCase()) ? 'Check for more' : 'Get'}
+							</button>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		{:else}
+			<p class="at">Harbor is not connected to the manga engine yet, so it can tidy but not search. Run Harbor's install command on Tower again.</p>
+		{/if}
 		{#if view.error}<p class="empty bad">Harbor could not read the engine's folder: {view.error}</p>{/if}
 		<ul class="series">
 			{#each view.series as s (s.series)}
@@ -77,7 +159,10 @@
 				</li>
 			{/each}
 		</ul>
-		<p class="later">On Tower the tidy files are in the media folder under <strong>Manga</strong>, one folder for each title. Coming next: getting a title from here, covers, and new chapters by themselves.</p>
+		{#if view.following?.length}
+			<p class="later">Harbor looks for new chapters four times a day for: {view.following.map((f) => f.title).join(', ')}.</p>
+		{/if}
+		<p class="later">On Tower the tidy files are in the media folder under <strong>Manga</strong>, one folder for each title. Harbor only asks the sites you switched on in the engine.</p>
 	{/if}
 </section>
 
@@ -105,6 +190,19 @@
 	.go { height: 36px; padding: 0 16px; border: 0; border-radius: 999px; background: var(--accent-fill); color: #fff; font: 600 14px/1 var(--font-ui); cursor: pointer; }
 	.go:hover { background: var(--accent-fill-hover); }
 	.go:disabled { opacity: 0.6; cursor: default; }
+	.find { display: flex; gap: 8px; flex-wrap: wrap; }
+	.find input { flex: 1 1 220px; min-width: 0; height: 40px; padding: 0 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface-1); color: var(--text); font: 500 15px/1 var(--font-ui); }
+	.find .go { height: 40px; }
+	.line { margin: 0; padding: 10px 14px; border-radius: 12px; background: var(--surface-2); font: 600 13px/1.45 var(--font-ui); color: var(--text); }
+	.line.bad { color: var(--fail-text); }
+	.hits { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+	.hits li { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-1); }
+	.hits img, .nocover { width: 56px; height: 80px; border-radius: 8px; object-fit: cover; background: var(--surface-2); }
+	.nocover { display: grid; place-items: center; font: 700 22px/1 var(--font-display); color: var(--text-faint); }
+	@media (max-width: 520px) {
+		.hits li { grid-template-columns: auto 1fr; }
+		.hits .go { grid-column: 1 / -1; }
+	}
 	.later { margin: 6px 0 0; font: 500 13px/1.4 var(--font-ui); color: var(--text-faint); }
 	.later strong { color: var(--text-muted); font-weight: 600; }
 </style>
