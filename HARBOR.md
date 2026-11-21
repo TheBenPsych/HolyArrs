@@ -45,3 +45,21 @@ tag, and Harbor does not push version tags.
 `.github/workflows/harbor-image.yml` checks every pull request (image build,
 `go build`, `go vet`) and builds every change on `main` into
 `ghcr.io/thebenpsych/harbor:latest`. Nothing is published to Docker Hub.
+
+## Install on Tower
+
+`deploy/harbor/harbor-install.sh` installs Harbor on the Unraid server next to
+the old apps. Paste this into the Unraid terminal (the `>_` icon, top right):
+
+```sh
+true; curl -fsSL https://raw.githubusercontent.com/TheBenPsych/HolyArrs/main/deploy/harbor/harbor-install.sh | bash ; true
+```
+
+It starts the container `harbor` on port 6262, gives it the media folder
+read-only (watch-only mode, for the practice week) and hands Harbor the
+addresses and keys of Radarr, Sonarr, Lidarr, Prowlarr, Bazarr and Seerr, so
+**Settings > Import from other apps** can read them without typing. It only
+looks at the old apps and never changes them. Running it again updates Harbor
+and keeps its settings. `HARBOR_DRY=1` before `bash` shows what it would do
+and changes nothing; `HARBOR_MODE=full` makes the media folder writable, for
+the switch-over.
