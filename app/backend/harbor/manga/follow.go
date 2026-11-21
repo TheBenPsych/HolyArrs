@@ -21,6 +21,10 @@ type Followed struct {
 	Checked string `json:"checked,omitempty"`
 	Total   int    `json:"total,omitempty"`
 	Note    string `json:"note,omitempty"`
+	// Dressed is set once Harbor has tried to fetch the cover and story.
+	Dressed bool  `json:"dressed,omitempty"`
+	Covered bool  `json:"covered,omitempty"`
+	Info    *Info `json:"info,omitempty"`
 }
 
 // followFile is Harbor's own list inside the manga folder. The folder name
@@ -161,6 +165,7 @@ func (s *Service) Get(ctx context.Context, title string, on []Found) GetResult {
 	for i := range list {
 		if TitleKey(list[i].Title) == TitleKey(title) {
 			f.Title, f.Since = list[i].Title, list[i].Since
+			f.Dressed, f.Covered, f.Info = list[i].Dressed, list[i].Covered, list[i].Info
 			list[i], found = f, true
 		}
 	}

@@ -56,7 +56,8 @@ func (s *Service) Tidy() ([]Report, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.fmu.Lock()
-	s.Lib.Aliases = aliases(s.Lib.loadFollowed())
+	followed := s.Lib.loadFollowed()
+	s.Lib.Aliases, s.Lib.Info = aliases(followed), infoFor(followed)
 	s.fmu.Unlock()
 	reps, err := s.Lib.TidyAll()
 	s.at = time.Now()
@@ -76,6 +77,7 @@ func (s *Service) Run(ctx context.Context) {
 	var checked time.Time
 	for {
 		_, _ = s.Tidy()
+		s.dressFollowed(ctx)
 		// New chapters: ask the sites four times a day, no more.
 		if time.Since(checked) >= 6*time.Hour {
 			checked = time.Now()

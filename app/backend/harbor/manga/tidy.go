@@ -24,6 +24,9 @@ type Librarian struct {
 	// Aliases maps another spelling of a title (as a TitleKey) to its
 	// shelf name. See follow.go.
 	Aliases map[string]string
+	// Info holds extra series.json keys (author, story ...) for a title,
+	// by TitleKey. They only fill keys the file does not have yet.
+	Info map[string]map[string]any
 }
 
 // SeriesFile is the series.json Harbor writes beside the chapters. Readers
@@ -209,6 +212,16 @@ func (l Librarian) tidy(p Plan) Report {
 	}
 	if !exists(filepath.Join(folder, "cover.jpg")) {
 		_ = writeCover(p.Kept[0].File.Path, filepath.Join(folder, "cover.jpg"))
+	}
+	if more := l.Info[TitleKey(p.Series)]; len(more) > 0 {
+		if old.Extra == nil {
+			old.Extra = map[string]any{}
+		}
+		for k, v := range more {
+			if _, has := old.Extra[k]; !has {
+				old.Extra[k] = v
+			}
+		}
 	}
 	if err := writeJSON(filepath.Join(folder, "series.json"), sf, old.Extra); err != nil && rep.Error == "" {
 		rep.Error = "Could not write series.json: " + err.Error()

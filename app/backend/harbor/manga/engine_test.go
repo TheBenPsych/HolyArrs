@@ -3,6 +3,8 @@ package manga
 import (
 	"context"
 	"encoding/json"
+	"image"
+	"image/png"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -40,6 +42,11 @@ func TestChooseOfficialFirstThenFillGaps(t *testing.T) {
 // fakeEngine answers the few requests Harbor makes.
 func fakeEngine(t *testing.T, queued *[]int) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/thumbnail") {
+			w.Header().Set("Content-Type", "image/png")
+			_ = png.Encode(w, image.NewRGBA(image.Rect(0, 0, 4, 6)))
+			return
+		}
 		var in struct {
 			Query string         `json:"query"`
 			Vars  map[string]any `json:"variables"`
@@ -74,6 +81,8 @@ func fakeEngine(t *testing.T, queued *[]int) *httptest.Server {
 				*queued = append(*queued, int(v.(float64)))
 			}
 			reply(`{"enqueueChapterDownloads":{"clientMutationId":null}}`)
+		case strings.Contains(in.Query, "manga(id"):
+			reply(`{"manga":{"author":"Someone","description":"A short story line.","genre":["Action"],"status":"ONGOING"}}`)
 		case strings.Contains(in.Query, "downloadStatus"):
 			reply(`{"downloadStatus":{"state":"STARTED","queue":[{"state":"DOWNLOADING","progress":0.5,"chapter":{"name":"Ch. 2"},"manga":{"title":"The Eminence in Shadow"}},{"state":"ERROR","progress":0,"chapter":{"name":"Ch. 3"},"manga":{"title":"X"}}]}}`)
 		default:
@@ -116,6 +125,22 @@ func TestSearchGetAndQueue(t *testing.T) {
 	al := aliases(s.Lib.loadFollowed())
 	if al[TitleKey("The Eminence in Shadow!")] != "The Eminence in Shadow" && len(al) != 0 {
 		t.Fatalf("aliases %v", al)
+	}
+
+	// Once the title has a folder, Harbor fetches its cover and story once.
+	folder := filepath.Join(dir, "The Eminence in Shadow")
+	_ = os.MkdirAll(folder, 0o755)
+	_ = os.WriteFile(filepath.Join(folder, "series.json"), []byte(`{"title":"The Eminence in Shadow","chapters":[]}`), 0o644)
+	s.dressFollowed(context.Background())
+	fl := s.Lib.loadFollowed()
+	if len(fl) != 1 || !fl[0].Dressed || !fl[0].Covered || fl[0].Info == nil || fl[0].Info.Status != "ongoing" {
+		t.Fatalf("dressed %+v", fl)
+	}
+	if b, err := os.ReadFile(filepath.Join(folder, "cover.jpg")); err != nil || len(b) < 100 || b[0] != 0xff || b[1] != 0xd8 {
+		t.Fatalf("cover not a jpeg: %v", err)
+	}
+	if infoFor(fl)[TitleKey("The Eminence in Shadow")]["author"] != "Someone" {
+		t.Fatalf("info %v", infoFor(fl))
 	}
 
 	q, err := e.Queue(context.Background())
