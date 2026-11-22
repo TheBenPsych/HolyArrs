@@ -41,6 +41,16 @@ export interface BoardCard {
 	askId?: number;
 	/** When it was asked, or when it landed. */
 	at?: string;
+	/** The download behind a Coming in card, for "Do this first". */
+	downloadId?: number;
+	/** Bytes a second, while downloading. */
+	speed?: number;
+	/** The whole copy's size in bytes, when known. */
+	size?: number;
+	/** The Downloader already has it first in its line. */
+	first?: boolean;
+	/** Harbor may change this download in its Downloader (not watch-only, not someone else's). */
+	canAct?: boolean;
 }
 
 const KIND: Record<string, CardKind> = { movie: 'movie', show: 'show', artist: 'music' };
@@ -108,6 +118,8 @@ export interface BoardInput {
 	live: Map<number, TitleLive>;
 	/** Downloads (the Downloads page's rows). Ones that belong to a request are skipped; the rest are "By itself". */
 	downloads: DownloadRow[];
+	/** Every download read (also for people who don't see "By itself" cards), so a request's card knows its speed and time left. */
+	rows?: DownloadRow[];
 	now: Date;
 }
 
@@ -116,8 +128,9 @@ export interface BoardInput {
  * card however many seasons it covers (it carries the season words). Downloads
  * that belong to no request are "By itself": new episodes and better copies.
  */
-export function boardCards({ asks, live, downloads, now }: BoardInput): BoardCard[] {
+export function boardCards({ asks, live, downloads, rows, now }: BoardInput): BoardCard[] {
 	const out: BoardCard[] = [];
+	const byId = new Map((rows ?? downloads).map((d) => [d.id, d]));
 	const askTitles = new Set<number>();
 	for (const a of asks) {
 		if (a.title_id && a.state !== 'turned_down') askTitles.add(a.title_id);
@@ -125,6 +138,8 @@ export function boardCards({ asks, live, downloads, now }: BoardInput): BoardCar
 		if (!placed) continue;
 		const at = placed.lane === 'landed' ? a.available_at : a.asked_at;
 		if (placed.lane === 'landed' && (!at || now.getTime() - Date.parse(at) > LANDED_DAYS * DAY)) continue;
+		const dlId = placed.lane === 'coming' && a.title_id ? live.get(a.title_id)?.download?.id : undefined;
+		const row = dlId != null ? byId.get(dlId) : undefined;
 		out.push({
 			key: `ask-${a.id}`,
 			lane: placed.lane,
@@ -138,7 +153,8 @@ export function boardCards({ asks, live, downloads, now }: BoardInput): BoardCar
 			href: askHref(a),
 			poster: a.poster,
 			askId: a.id,
-			at
+			at,
+			...(row ? moving(row) : {})
 		});
 	}
 	for (const d of downloads) {
@@ -178,7 +194,8 @@ export function boardCards({ asks, live, downloads, now }: BoardInput): BoardCar
 			byItself: !d.requested_by,
 			href: '/downloads',
 			poster: d.covers || d.artwork,
-			at: lane === 'landed' ? d.finished_at : d.started_at
+			at: lane === 'landed' ? d.finished_at : d.started_at,
+			...(lane === 'coming' ? moving(d) : {})
 		});
 	}
 	// Each lane: trouble first, then the oldest asks (Asked), the furthest along (Coming in) or the newest (Landed).
@@ -191,6 +208,89 @@ export function boardCards({ asks, live, downloads, now }: BoardInput): BoardCar
 		const ty = Date.parse(y.at ?? '') || 0;
 		return x.lane === 'landed' ? ty - tx : tx - ty;
 	});
+}
+
+/** moving is what a Coming in card knows from its download: which one, how fast, how big, and its place in line. */
+function moving(d: DownloadRow): Pick<BoardCard, 'downloadId' | 'speed' | 'size' | 'eta' | 'first' | 'canAct'> {
+	return {
+		downloadId: d.id,
+		speed: d.speed > 0 ? d.speed : undefined,
+		size: d.size > 0 ? d.size : undefined,
+		eta: d.eta && d.eta > 0 ? d.eta : undefined,
+		first: d.queue_pos === 1 || undefined,
+		canAct: d.can_act && !d.client_locked
+	};
+}
+
+export interface DoneBy {
+	/** Cards still coming in. */
+	count: number;
+	/** When the last one should be done, rounded up to five minutes; null when nobody can tell (nothing is moving). */
+	at: Date | null;
+	/** Bytes a second across every download. */
+	speed: number;
+	/** 0 to 1 across them all, by size when the sizes are known. */
+	progress: number;
+}
+
+const FIVE_MIN = 300_000;
+
+/**
+ * doneBy says when everything coming in should be finished (build list part 4,
+ * "All done by 9:40 PM"). Downloads share one line, so the honest time is the
+ * bytes still to come over the speed of them all together; when that is not
+ * known, the slowest download's own time left.
+ */
+export function doneBy(cards: BoardCard[], now: Date): DoneBy | null {
+	const coming = cards.filter((c) => c.lane === 'coming');
+	if (!coming.length) return null;
+	const speed = coming.reduce((n, c) => n + (c.speed ?? 0), 0);
+	const sized = coming.filter((c) => c.size != null && c.progress != null);
+	const total = sized.reduce((n, c) => n + c.size!, 0);
+	const left = sized.reduce((n, c) => n + c.size! * (1 - Math.max(0, Math.min(1, c.progress!))), 0);
+	let sec = 0;
+	if (speed > 0 && sized.length === coming.length) sec = left / speed;
+	for (const c of coming) if (c.eta) sec = Math.max(sec, c.eta);
+	const progress = total > 0 ? 1 - left / total : coming.reduce((n, c) => n + (c.progress ?? 0), 0) / coming.length;
+	const at = sec > 0 ? new Date(Math.ceil((now.getTime() + sec * 1000) / FIVE_MIN) * FIVE_MIN) : null;
+	return { count: coming.length, at, speed, progress: Math.max(0, Math.min(1, progress)) };
+}
+
+/** doneByTime says the finish time the way a person would: "9:40 PM", "tomorrow 7:15 AM", "Tuesday 3:00 PM". */
+export function doneByTime(at: Date, now: Date): string {
+	const time = at.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+	if (sameDay(at, now)) return time;
+	if (sameDay(at, new Date(now.getTime() + DAY))) return `tomorrow ${time}`;
+	if (at.getTime() - now.getTime() < 6 * DAY) return `${at.toLocaleDateString([], { weekday: 'long' })} ${time}`;
+	return `${at.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${time}`;
+}
+
+/** doneByLead is the words before the time: "All 7 done by about", or "Done by about" for one. */
+export function doneByLead(count: number): string {
+	return count === 1 ? 'Done by about' : `All ${count} done by about`;
+}
+
+/** speedWords says a download speed: "38 MB/s", "640 KB/s". */
+export function speedWords(bps: number): string {
+	if (bps >= 1024 ** 2) {
+		const mb = bps / 1024 ** 2;
+		return `${mb >= 10 ? Math.round(mb) : mb.toFixed(1)} MB/s`;
+	}
+	return `${Math.max(1, Math.round(bps / 1024))} KB/s`;
+}
+
+/** putFirst moves the cards asked to go first (or already first in the Downloader's line) to the front, keeping the rest in order. */
+export function putFirst(list: BoardCard[], firsts: Set<string>): BoardCard[] {
+	const up = (c: BoardCard) => firsts.has(c.key) || !!c.first;
+	return [...list.filter(up), ...list.filter((c) => !up(c))];
+}
+
+/** swipeAnswer reads a phone swipe on a waiting request: far enough right is a yes, far enough left a no. */
+export function swipeAnswer(dx: number, width: number): 'yes' | 'no' | null {
+	const far = Math.max(80, width * 0.35);
+	if (dx >= far) return 'yes';
+	if (dx <= -far) return 'no';
+	return null;
 }
 
 export type BoardFilter = 'all' | 'people' | 'itself' | CardKind;
