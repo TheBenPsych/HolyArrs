@@ -6,7 +6,8 @@ All credit for the original app goes to the HolyArrs project and its author.
 
 Harbor keeps everything HolyArrs does and adds, over time:
 
-- a new front door with five places: Today, Board, Explore, Shelves and Tower
+- a new front door with five places: Today, Explore, Board, Shelves and Tower,
+  in a floating top menu; every older page is a tab of one of them
 - books, audiobooks and comics
 - single-song and Soulseek music requests
 - trailer files, an inspection step before a file lands, undo, a space planner

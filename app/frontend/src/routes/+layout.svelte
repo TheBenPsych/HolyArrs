@@ -7,7 +7,7 @@
 	import { to, appPath } from '#lib/core/paths.ts';
 	import '../app.css';
 	import { onMount, tick, type Snippet } from 'svelte';
-	import { watchTitles, harborNav, harborTabs } from '#lib/harbor/index.ts';
+	import { watchTitles, harborNav, harborTabs, harborPlaces, placeHere, HarborTopMenu } from '#lib/harbor/index.ts';
 	import { navigating, page } from '$app/state';
 	import { afterNavigate, beforeNavigate, goto, onNavigate, preloadCode } from '$app/navigation';
 	import { hideReconnecting, loaderReady, navEnded, navWatch, showReconnecting } from '#lib/core/loader.ts';
@@ -34,10 +34,8 @@
 	import { minimalLook } from '#lib/core/look.svelte.ts';
 	import AppShell from './(frame)/AppShell.svelte';
 	import PosterWall from './(frame)/PosterWall.svelte';
-	import Sidebar from './(frame)/Sidebar.svelte';
 	import Avatar from '#lib/ui/Avatar.svelte';
 	import SidebarItem from './(frame)/SidebarItem.svelte';
-	import TopBar from './(frame)/TopBar.svelte';
 	import TabBar, { type Tab } from './(frame)/TabBar.svelte';
 	import Menu, { type MenuItem } from '#lib/ui/Menu.svelte';
 	import Sheet from '#lib/ui/Sheet.svelte';
@@ -114,6 +112,9 @@
 	const allItems = $derived(sections.flatMap((s) => s.items));
 	const path = $derived(appPath(page.url.pathname));
 	const here = $derived(currentHref(allItems, path, (page.shallow?.url ?? page.url).searchParams));
+	// Harbor: the five places and the tabs of the one you are in (top menu and phone tab bar).
+	const places = $derived(harborPlaces(sections));
+	const placeNow = $derived(placeHere(places, path, (page.shallow?.url ?? page.url).searchParams));
 	const brandHref = $derived(to(homeHref()));
 
 	// The Library remembers the last view per kind for this tab.
@@ -221,12 +222,10 @@
 	const searchKey = mac ? '⌘K' : 'Ctrl K';
 	// Downloads has no top bar: its own toolbar carries the sidebar button and a plain search.
 	$effect(() => {
-		dlTop.collapsed = collapsed;
+		dlTop.collapsed = false; // Harbor: no sidebar to show, the top menu is always there.
 		dlTop.searchKey = searchKey;
 		dlTop.toggle = () => void toggleSidebar();
 	});
-	// History has its own top row too (search, Live, Filter), so the shared bar steps aside there as well.
-	const topHidden = $derived(path === '/downloads' || path === '/library' || path === '/downloads/history');
 	const typingIn = (t: EventTarget | null) => t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
 	function keys(e: KeyboardEvent) {
 		if (!ready || bare) return;
@@ -285,21 +284,8 @@
 	const settingsItems = $derived(settingsOn ? (settingsNow.answer?.items ?? []) : []);
 	const tabReasons = $derived(dotReasons({ settings: settingsItems, decisions: decisions.count, waiting: inbox.waiting, unseen: toasts.unseen(), manager }));
 	const settingsReasons = $derived(dotReasons({ settings: settingsItems, decisions: 0, waiting: 0, unseen: 0, manager: true }));
-	const tabs = $derived.by<Tab[]>(() => {
-		const list: Tab[] = [];
-		const add = (href: string, label: string, icon: Tab['icon']) => list.push({ href: to(href), label, icon, current: href === '/' ? path === '/' : path === href || path.startsWith(href + '/') });
-		add('/', t('frame.nav.home'), 'home');
-		add('/explore', t('frame.nav.explore'), 'compass');
-		add('/library', t('frame.nav.library'), 'library');
-		add('/search', t('frame.layout.search'), 'search');
-		if (!manager && allowed('wishlist') && !offPartName(partsNow.answer, '/requests')) {
-			list.push({ href: to('/requests'), label: t('frame.nav.requests'), icon: 'requests', current: path.startsWith('/requests'), badge: inbox.unread || undefined });
-		}
-		const tabbed = ['/', '/explore', '/library', '/search', '/requests'];
-		const elsewhere = !tabbed.some((h) => (h === '/' ? path === '/' : path === h || path.startsWith(h + '/')));
-		list.push({ label: manager ? t('frame.nav.manage') : t('frame.layout.more'), icon: manager ? 'inbox' : 'more', current: elsewhere, dot: tabReasons.length > 0, onclick: () => (moreOpen = true) });
-		return harborTabs(list, sections, to, path);
-	});
+	// Harbor: the phone tab bar holds all five places.
+	const tabs = $derived(harborTabs<Tab>(places, placeNow.place?.id ?? null, to));
 
 	const roleWord = $derived(({ owner: t('frame.layout.owner'), admin: t('frame.layout.admin'), member: t('frame.layout.member') } as Record<string, string>)[session.s.role] ?? t('frame.layout.member'));
 	// An id-like account name (preview-..., e2e-...) reads as "You".
@@ -472,6 +458,17 @@
 
 {#snippet dotPanel(close: () => void)}<DotList reasons={settingsReasons} {link} lead onpick={() => { close(); void closeOverlay(false); }} />{/snippet}
 
+{#snippet topTools()}
+	<!-- Harbor: alerts and your account, at the right of the top menu. -->
+	<button type="button" class="alerts-bell harbor-bell" data-alerts-open aria-label={unseenAlerts ? t('frame.layout.alertsNew', { n: unseenAlerts }) : t('frame.layout.alerts')} aria-expanded={alertsPanel.open} onclick={() => (alertsPanel.open = !alertsPanel.open)}>
+		<Icon name="bell" size={20} />
+		{#if unseenAlerts}<span class="alerts-count" class:bad={hasFailAlert}>{unseenAlerts > 9 ? '9+' : unseenAlerts}</span>{/if}
+	</button>
+	<Menu label={t('frame.layout.accountMenu', { name: shownName, role: roleWord })} items={accountItems} variant="icon" align="end" placement="below" width={240}>
+		{#snippet trigger()}<Avatar name={shownName} src={session.s.avatar} size={40} />{/snippet}
+	</Menu>
+{/snippet}
+
 {#snippet account()}
 	<Menu label={t('frame.layout.accountMenu', { name: shownName, role: roleWord })} items={accountItems} variant="row" align="start" placement="above" width={240}>
 		{#snippet trigger()}
@@ -513,31 +510,8 @@
 	{#if backdrop.value === 'posters' && path !== '/settings' && !minimalLook()}<PosterWall />{/if}
 	<AppShell {collapsed} {overlay} onscrim={() => closeOverlay()}>
 		{#snippet sidebar()}
-			<Sidebar
-				id="sidebar"
-				{sections}
-				{collapsed}
-				{overlay}
-				currentHref={here}
-				{link}
-				{brandHref}
-				markSrc={to(mark)}
-				bind:toggle={sidebarToggle}
-				ontoggle={toggleSidebar}
-				onpick={() => void closeOverlay(false)}
-				footer={account}
-				{dotPanel}
-			/>
-		{/snippet}
-		{#snippet topbar()}
-			{#if !topHidden}<TopBar
-				showToggle={collapsed}
-				controls="sidebar"
-				bind:toggle={topToggle}
-				ontoggle={toggleSidebar}
-				history={detail}
-				{searchKey}
-			/>{/if}
+			<!-- Harbor: the floating top menu replaces the sidebar and the top bar (lib/harbor/HarborTopMenu). -->
+			<HarborTopMenu {places} place={placeNow.place} tab={placeNow.tab} {link} {brandHref} history={detail} {searchKey} searchHref={to('/search')} tools={topTools} />
 		{/snippet}
 		{#snippet tabbar()}<TabBar items={tabs} />{/snippet}
 		<main id="main" tabindex="-1" class:bleed={path === '/downloads' || (path.startsWith('/downloads/') && path !== '/downloads/history')}>
@@ -606,6 +580,8 @@
 	.alerts-bell:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 	.alerts-count { position: absolute; top: 2px; right: 0; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; display: grid; place-items: center; font: 700 10px/1 var(--font-ui); font-variant-numeric: tabular-nums; color: #fff; background: var(--text-muted); box-shadow: 0 0 0 2px var(--sidebar-solid, var(--bg)); }
 	.alerts-count.bad { background: var(--fail, #d70015); }
+	.harbor-bell { width: 44px; height: 44px; color: var(--text); background: var(--harbor-glass); border: 1px solid var(--harbor-edge); -webkit-backdrop-filter: blur(22px); backdrop-filter: blur(22px); }
+	.harbor-bell .alerts-count { top: 4px; right: 2px; box-shadow: 0 0 0 2px var(--bg); }
 	.more { display: flex; flex-direction: column; gap: 16px; }
 	.more h3 { padding: 0 12px 4px; color: var(--text-muted); font: 600 12px/1.3 var(--font-ui); }
 	.more ul { display: flex; flex-direction: column; gap: 2px; }

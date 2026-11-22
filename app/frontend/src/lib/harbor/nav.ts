@@ -1,4 +1,6 @@
-// Harbor's five-place menu: Today, Board, Explore, Shelves and Tower.
+// Harbor's five-place menu: Today, Explore, Board, Shelves and Tower.
+// The top menu (HarborTopMenu) shows the five; places.ts turns every row kept
+// under "More" here into a tab of one place, so the old groups are not shown.
 // HolyArrs builds its own sidebar sections (routes/(frame)/nav.ts); harborNav
 // reshapes them so the five places sit on top and every HolyArrs page is kept
 // underneath in a "More" group. Nothing is dropped and no permission rule
@@ -25,7 +27,7 @@ export interface HarborSection<I extends HarborItem = HarborItem> {
 	items: I[];
 }
 
-export const HARBOR_PLACES = ['Today', 'Board', 'Explore', 'Shelves', 'Tower'] as const;
+export const HARBOR_PLACES = ['Today', 'Explore', 'Board', 'Shelves', 'Tower'] as const;
 export const HARBOR_MORE = 'More';
 export const HARBOR_BOARD = '/board';
 export const HARBOR_TOWER = '/tower';
@@ -66,10 +68,11 @@ export function harborNav<I extends HarborItem, S extends HarborSection<I>>(sect
 	const five = [
 		// Today is the home page; the Calendar belongs to it (its arrivals line links there).
 		place(home, 'Today', 'calendarDay', ['/calendar']),
+		// Explore comes second (design harbor-9): finding new things is the next thing people do.
+		place(explore, 'Explore', 'compass', ['/popular', '/search']),
 		// Board is Harbor's own page (lib/harbor/HarborBoard). It shows for anyone who may see requests or downloads,
 		// and borrows that page's badge. The Requests and Downloads pages stay under More for the detail.
 		board(requests ?? downloads),
-		place(explore, 'Explore', 'compass', ['/popular', '/search']),
 		// Shelves opens the whole Library; the badge of a single kind does not apply.
 		library ? ({ ...place(library, 'Shelves', 'library', ['/library', '/title'])!, badge: undefined, badgeLabel: undefined, ring: undefined, dot: undefined } as I) : null,
 		tower
@@ -87,32 +90,4 @@ export function harborNav<I extends HarborItem, S extends HarborSection<I>>(sect
 	const out: S[] = [{ id: 'top', label: null, items: five } as unknown as S];
 	for (const s of more) out.push({ ...s, id: s.id === 'top' ? 'harbor-more' : s.id, label: s.id === 'top' ? HARBOR_MORE : s.label } as S);
 	return out;
-}
-
-/** The parts of a phone tab Harbor reads. Matches Tab in routes/(frame)/TabBar.svelte. */
-export interface HarborTab {
-	label: string;
-	icon: string;
-	href?: string;
-	current?: boolean;
-	badge?: number;
-	dot?: boolean;
-	onclick?: () => void;
-}
-
-/**
- * harborTabs builds the phone tab bar from the first four places, then keeps
- * HolyArrs's last tab (More, or Manage for people who run the server), which
- * opens the sheet with every place including Tower.
- */
-export function harborTabs<T extends HarborTab>(tabs: T[], sections: HarborSection[], to: (href: string) => string, path: string): T[] {
-	const last = tabs[tabs.length - 1];
-	const five = sections[0]?.items ?? [];
-	const on = (i: HarborItem) => [i.href, ...(i.also ?? [])].some((h) => (h === '/' ? path === '/' : path === h || path.startsWith(h + '/')));
-	const list = five
-		.filter((i) => i.label !== 'Tower')
-		.slice(0, 4)
-		.map((i) => ({ href: to(i.href), label: i.label, icon: i.icon, current: on(i), badge: i.badge || undefined }) as T);
-	if (!last || last.href) return list;
-	return [...list, { ...last, current: !five.some(on) || five.some((i) => i.label === 'Tower' && on(i)) }];
 }
