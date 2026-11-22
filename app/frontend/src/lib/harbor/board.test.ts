@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Ask, DownloadRow } from '#lib/core/types.ts';
 import type { TitleLive } from '#lib/requests/index.ts';
-import { askLane, boardCards, byLane, etaWords, filterCards } from './board.ts';
+import { askLane, boardCards, byLane, doneBy, doneByLead, doneByTime, etaWords, filterCards, putFirst, speedWords, swipeAnswer, type BoardCard } from './board.ts';
 
 const now = new Date('2026-11-20T16:10:00');
 const ask = (o: Partial<Ask>): Ask =>
@@ -78,5 +78,61 @@ describe('filters and lanes', () => {
 		expect(etaWords(240)).toBe('4 min');
 		expect(etaWords(7200)).toBe('2 hr');
 		expect(etaWords(86400)).toBe('1 day');
+	});
+});
+
+describe('All done by', () => {
+	const card = (o: Partial<BoardCard>): BoardCard => ({ key: 'k', lane: 'coming', name: 'x', kind: 'show', who: '', line: '', byItself: true, href: '/downloads', ...o });
+	it('uses the bytes left over the speed of everything together, rounded up to five minutes', () => {
+		const MB = 1024 ** 2;
+		const d = doneBy([card({ key: 'a', size: 1000 * MB, progress: 0.5, speed: 2 * MB }), card({ key: 'b', size: 1000 * MB, progress: 0.9, speed: 1 * MB }), card({ key: 'c', lane: 'landed' })], now);
+		// 600 MB left at 3 MB/s = 200 s from 16:10 -> 16:13:20 -> 16:15.
+		expect(d).toMatchObject({ count: 2, speed: 3 * MB });
+		expect(d!.at!.getHours()).toBe(16);
+		expect(d!.at!.getMinutes()).toBe(15);
+		expect(d!.progress).toBeCloseTo(0.7);
+	});
+	it('never says sooner than the slowest download says itself', () => {
+		const d = doneBy([card({ size: 10, progress: 0.5, speed: 1000, eta: 3600 })], now);
+		expect(d!.at!.getHours()).toBe(17);
+		expect(d!.at!.getMinutes()).toBe(10);
+	});
+	it('has no time when nothing is moving, and nothing at all when nothing is coming in', () => {
+		expect(doneBy([card({ progress: 0.2 })], now)).toMatchObject({ count: 1, at: null });
+		expect(doneBy([card({ lane: 'asked' })], now)).toBeNull();
+	});
+	it('says the day when it is not today', () => {
+		expect(doneByTime(new Date('2026-11-20T21:40:00'), now)).not.toMatch(/tomorrow/);
+		expect(doneByTime(new Date('2026-11-21T07:15:00'), now)).toMatch(/^tomorrow /);
+		expect(doneByLead(1)).toBe('Done by about');
+		expect(doneByLead(7)).toBe('All 7 done by about');
+	});
+	it('says speeds plainly', () => {
+		expect(speedWords(38 * 1024 ** 2)).toBe('38 MB/s');
+		expect(speedWords(1.5 * 1024 ** 2)).toBe('1.5 MB/s');
+		expect(speedWords(640 * 1024)).toBe('640 KB/s');
+	});
+});
+
+describe('Do this first and swipe', () => {
+	const c = (key: string, first?: boolean) => ({ key, first }) as BoardCard;
+	it('moves the cards asked to go first to the front, keeping the rest in order', () => {
+		expect(putFirst([c('a'), c('b'), c('c', true), c('d')], new Set(['b'])).map((x) => x.key)).toEqual(['b', 'c', 'a', 'd']);
+	});
+	it('reads a swipe far enough right as yes and left as no', () => {
+		expect(swipeAnswer(150, 360)).toBe('yes');
+		expect(swipeAnswer(-150, 360)).toBe('no');
+		expect(swipeAnswer(60, 360)).toBeNull();
+		expect(swipeAnswer(85, 200)).toBe('yes');
+	});
+	it('gives a request card its download speed and place in line', () => {
+		const cards = boardCards({
+			asks: [ask({ id: 1, state: 'approved', title_id: 5 })],
+			live: new Map([[5, { download: { phase: 'downloading', progress: 0.2, id: 3 } }]]),
+			downloads: [],
+			rows: [dl({ id: 3, title_id: 5, speed: 2048, size: 4096, eta: 90, queue_pos: 1 })],
+			now
+		});
+		expect(cards[0]).toMatchObject({ lane: 'coming', downloadId: 3, speed: 2048, size: 4096, eta: 90, first: true, canAct: true });
 	});
 });

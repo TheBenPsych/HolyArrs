@@ -77,7 +77,7 @@ export function createBoardData() {
 	});
 
 	const cards = $derived<BoardCard[]>(
-		boardCards({ asks: asks.filter((a) => !answered.has(a.id)), live: titleLive, downloads: manager ? downloads : [], now })
+		boardCards({ asks: asks.filter((a) => !answered.has(a.id)), live: titleLive, downloads: manager ? downloads : [], rows: downloads, now })
 	);
 
 	/** Says yes or no to a waiting request. A no carries the reason the person will see. */
@@ -95,9 +95,47 @@ export function createBoardData() {
 		void load();
 	}
 
+	/**
+	 * answerSoon is the phone swipe: the card goes at once, and the answer is
+	 * sent after a few seconds unless Undo is pressed.
+	 */
+	const UNDO_MS = 5000;
+	function answerSoon(id: number, yes: boolean) {
+		const a = asks.find((x) => x.id === id);
+		answered = new Set([...answered, id]);
+		const send = setTimeout(() => void answer(id, yes), UNDO_MS);
+		toasts.push(yes ? `Approving ${a?.name ?? 'the request'}` : `Saying no to ${a?.name ?? 'the request'}`, 'info', {
+			ms: UNDO_MS,
+			action: {
+				label: 'Undo',
+				run: () => {
+					clearTimeout(send);
+					answered = new Set([...answered].filter((x) => x !== id));
+				}
+			}
+		});
+	}
+
+	/** Do this first: puts a download at the front of its Downloader's line. */
+	let firsts = $state(new Set<string>());
+	async function first(c: BoardCard) {
+		if (c.downloadId == null) return;
+		firsts = new Set([...firsts, c.key]);
+		try {
+			await api.post(`/downloads/${c.downloadId}/top`, {});
+			toasts.push(`${c.name} is first in line now`, 'ok');
+		} catch (e) {
+			firsts = new Set([...firsts].filter((k) => k !== c.key));
+			toasts.push(`Could not move ${c.name} to the front`, 'fail', { body: e instanceof Error ? e.message : String(e) });
+		}
+	}
+
 	return {
 		load,
 		answer,
+		answerSoon,
+		first,
+		get firsts() { return firsts; },
 		get cards() { return cards; },
 		get asks() { return asks; },
 		get loaded() { return loaded; },
