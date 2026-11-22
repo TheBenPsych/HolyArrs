@@ -1,10 +1,11 @@
-<!-- Harbor's Tower: one place for how the server is doing. Four tabs:
-     Health (a wiring map, a broken line is the broken connection), Jobs
-     (everything Harbor does by itself, with Run now), Downloads (what is
-     coming in, the safety checks, the history) and Rules (the everyday
-     settings written as sentences). People and Every setting open HolyArrs's
-     own pages, which stay as the deep layer. Reads and writes only HolyArrs's
-     existing routes. Design: harbor-5 screens 6 and 7, harbor-6 screen 6. -->
+<!-- Harbor's Tower in the bold look (redesign part 7): one place for how the
+     server is doing. Overview has a glowing orb (mint all good, amber look at
+     something, red broken), a tile per connection with its last 7 days as
+     dots, live graphs of download speed, processor and disk, and the six
+     Settings groups. Jobs shows today as a timeline, then every job with Run
+     now. Downloads and Rules (the everyday settings written as sentences)
+     stay. The tabs live in the top menu. Reads and writes HolyArrs's own
+     routes, plus /harbor/tower/week and /harbor/tower/pulse. -->
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
@@ -23,12 +24,15 @@
 	import { checkMetadata } from '#lib/metadata/index.ts';
 	import type { OutsideList } from '#lib/requests/index.ts';
 	import { langName, type Language, type SubtitleSettings } from '#lib/subtitles/index.ts';
-	import { TOWER_TABS, ago, downloadSummary, findOldName, healthSentence, hubLine, jobLines, lookAt, ruleBlocks, towerMap, towerTab, type MapNode, type RuleKey, type RuleWord } from './tower.ts';
+	import { TOWER_TABS, ago, downloadSummary, findOldName, jobLines, lookAt, ruleBlocks, towerMap, towerTab, type RuleKey, type RuleWord } from './tower.ts';
+	import { SETTINGS_GROUPS, dayName, orbOf, weekDots, weekWords, type Week } from './tower-bold.ts';
+	import HarborTowerPulse from './HarborTowerPulse.svelte';
+	import HarborTowerDay from './HarborTowerDay.svelte';
 
 	const tab = $derived(towerTab(page.url.searchParams.get('tab')));
 	const canSee = $derived(session.can('settings') || session.can('manage_library'));
 	const canAct = $derived(session.can('settings') && !session.kid);
-	const tabHref = (id: string) => to(id === 'health' ? '/tower' : `/tower?tab=${id}`);
+	const tabLabel = $derived(TOWER_TABS.find((t) => t.id === tab)?.label ?? 'Tower');
 
 	let now = $state(Date.now());
 
@@ -38,23 +42,26 @@
 	const rows = $derived<StatusRow[]>(input ? buildRows({ ...input, now }) : []);
 	const parts = $derived(rows.filter((r) => r.group !== 'jobs'));
 	const nodes = $derived(towerMap(parts));
-	const left = $derived(nodes.filter((n) => n.side === 'left'));
-	const right = $derived(nodes.filter((n) => n.side === 'right'));
 	const trouble = $derived(lookAt(rows));
+	const orb = $derived(orbOf(rows));
 	const jobs = $derived(jobLines(input?.schedules ?? [], now));
+	// The last 7 days of each connection, noted by Harbor itself (harbor-health-week.json).
+	let week = $state<Week | null>(null);
 
 	let seq = 0;
 	async function loadHealth(force = false) {
 		const n = ++seq;
-		const [states, checks, sched, lists, alerts, meta] = await Promise.allSettled([
+		const [states, checks, sched, lists, alerts, meta, wk] = await Promise.allSettled([
 			api.get<HealthStates>('/health/states'),
 			api.get<HealthChecks>('/health/checks'),
 			api.get<{ schedules: ScheduleRow[] }>('/schedules'),
 			api.get<{ outside_lists: OutsideList[] }>('/outside-lists'),
 			api.get<{ alerts: AlertView[] }>('/alerts'),
-			checkMetadata(force)
+			checkMetadata(force),
+			api.get<Week>('/harbor/tower/week')
 		]);
 		if (n !== seq) return;
+		if (wk.status === 'fulfilled') week = wk.value;
 		const val = <T,>(r: PromiseSettledResult<T>) => (r.status === 'fulfilled' ? r.value : undefined);
 		healthFailed = states.status === 'rejected' && sched.status === 'rejected';
 		if (healthFailed && input) return;
@@ -234,59 +241,59 @@
 	});
 </script>
 
-{#snippet node(n: MapNode)}
-	<li class="node {n.tone}" data-testid="tower-node">
-		<a href={to(n.href)}>
-			<span class="dot" aria-hidden="true"></span>
-			<span class="nm">{n.name}</span>
-			<span class="ln">{n.line}</span>
-		</a>
-	</li>
-{/snippet}
-
 <div class="harbor-tower" data-testid="harbor-tower">
-	<header class="top">
-		<h1>Tower</h1>
-		<p class="lede">How the server is doing, what it is busy with, and the rules it follows.</p>
-	</header>
-
-	<nav class="tabs" aria-label="Tower">
-		{#each TOWER_TABS as t (t.id)}
-			<a class="ttab" href={tabHref(t.id)} aria-current={tab === t.id ? 'page' : undefined} data-sveltekit-noscroll>
-				{t.label}{#if t.id === 'health' && trouble.length}<span class="n">{trouble.length}</span>{/if}
-			</a>
-		{/each}
-		<span class="gap" aria-hidden="true"></span>
-		{#if session.can('users')}<a class="ttab out" href={to('/settings/users')}>People<Icon name="chevronRight" size={14} /></a>{/if}
-		{#if session.can('settings')}<a class="ttab out" href={to('/settings')}>Every setting<Icon name="chevronRight" size={14} /></a>{/if}
-	</nav>
-
 	{#if !canSee}
+		<header class="top"><h1>Tower</h1></header>
 		<p class="quiet">Only people who look after Harbor can open the Tower.</p>
 	{:else if tab === 'health'}
-		<section class="pane" aria-label="Health">
-			<div class="pane-top">
-				<p class="sentence" class:bad={trouble.length > 0}>{input ? healthSentence(rows) : 'Checking every line…'}</p>
-				{#if canAct}<button type="button" class="hbtn" onclick={testEvery} disabled={running.has('all')}><Icon name="refresh" size={15} />{running.has('all') ? 'Testing…' : 'Test every line'}</button>{/if}
-			</div>
-			{#if healthFailed && !input}
-				<p class="quiet">Harbor could not read its own status just now. Try again in a minute.</p>
-			{:else if input}
-				<div class="map" data-testid="tower-map">
-					<ul class="side l">{#each left as n (n.id)}{@render node(n)}{/each}</ul>
-					<div class="hub">
-						<span class="hub-name">HARBOR</span>
-						<span class="hub-line">{hubLine(rows)}</span>
-					</div>
-					<ul class="side r">{#each right as n (n.id)}{@render node(n)}{/each}</ul>
+		<section class="pane" aria-label="Overview">
+			<div class="hero">
+				<div class="orb {input ? orb.tone : 'idle'}" aria-hidden="true">
+					<span class="ball"></span>
+					<span class="in">
+						{#if !input}<b>…</b>{:else if orb.count}<b>{orb.count}</b>{:else}<Icon name="check" size={46} />{/if}
+						<small>{input ? orb.label : 'checking'}</small>
+					</span>
 				</div>
-				<p class="key"><span class="k ok"></span>Working <span class="k wait"></span>Needs a look <span class="k fail"></span>Broken <span class="k idle"></span>Off or not set up. Tap a box to open its settings.</p>
+				<div class="hero-words">
+					<h1>{input ? orb.headline : healthFailed ? 'Tower could not answer' : 'Checking every line…'}</h1>
+					<p class="line">{input ? orb.line : healthFailed ? 'Harbor could not read its own status just now. Try again in a minute.' : ' '}</p>
+					{#if trouble[0]}
+						{@const r = trouble[0]}
+						<div class="issue glass {r.tone}">
+							<i class="dot" aria-hidden="true"></i>
+							<div class="words"><p class="what">{r.name} · {r.word}</p>{#if r.reason}<p class="why">{r.reason}</p>{/if}</div>
+							{#if r.fix}<a class="hbtn go-btn" href={to(r.fix)}>Fix it</a>{/if}
+						</div>
+					{/if}
+					<div class="acts">
+						{#if canAct}<button type="button" class="hbtn" onclick={testEvery} disabled={running.has('all')}><Icon name="refresh" size={15} />{running.has('all') ? 'Testing…' : 'Test every line'}</button>{/if}
+						<a class="hbtn" href={to('/health')}>Full status page<Icon name="chevronRight" size={14} /></a>
+					</div>
+				</div>
+			</div>
 
-				{#if trouble.length}
-					<h2>{trouble.length === 1 ? 'One thing to look at' : 'Things to look at'}</h2>
+			{#if input}
+				<div class="tiles" data-testid="tower-map">
+					{#each nodes as n (n.id)}
+						{@const dots = weekDots(n.keys, week, n.tone)}
+						<a class="tile glass {n.tone}" href={to(n.href)} data-testid="tower-node">
+							<span class="tt"><i class="dot" aria-hidden="true"></i><strong>{n.name}</strong></span>
+							<span class="ln">{n.line}</span>
+							<span class="week" role="img" aria-label="Last 7 days: {weekWords(dots)}" data-testid="tower-week">
+								{#each dots as d, i (i)}<i class="wd {d}" title="{week?.days[i] ? dayName(week.days[i]) : ''}: {d === 'none' ? 'not noted' : d === 'ok' ? 'working' : d === 'wait' ? 'needed a look' : d === 'fail' ? 'broken' : 'off'}"></i>{/each}
+							</span>
+							<span class="wk">{weekWords(dots)}</span>
+						</a>
+					{/each}
+				</div>
+				<p class="key"><span class="k ok"></span>Working <span class="k wait"></span>Needs a look <span class="k fail"></span>Broken <span class="k idle"></span>Off or not set up. The small dots are the last 7 days, today on the right.</p>
+
+				{#if trouble.length > 1}
+					<h2>Things to look at <span>{trouble.length}</span></h2>
 					<ul class="issues">
 						{#each trouble as r (r.key)}
-							<li class={r.tone}>
+							<li class="glass {r.tone}">
 								<div class="words">
 									<p class="what"><strong>{r.name}</strong> · {r.word}</p>
 									{#if r.reason}<p class="why">{r.reason}</p>{/if}
@@ -296,14 +303,26 @@
 						{/each}
 					</ul>
 				{/if}
-				<p class="deeper">Want every detail? HolyArrs's full <a href={to('/health')}>Status page</a> is still here, with storage, updates and support.</p>
+			{/if}
+
+			<h2>Live <span>How hard Tower is working right now</span></h2>
+			<HarborTowerPulse />
+
+			{#if session.can('settings') || session.can('users')}
+				<h2>Settings <span>6 groups · or just search</span><a class="go" href={to('/settings')}>Open Settings<Icon name="chevronRight" size={14} /></a></h2>
+				<div class="sgroups">
+					{#each SETTINGS_GROUPS as g (g.id)}
+						<a class="sg glass c-{g.colour}" href={to(`/settings#group-${g.id}`)}><span class="badge" aria-hidden="true"><Icon name={g.icon} size={20} /></span><strong>{g.label}</strong></a>
+					{/each}
+				</div>
 			{/if}
 		</section>
 	{:else if tab === 'jobs'}
+		<header class="top"><h1>Jobs</h1><p class="lede">{input ? `Harbor does ${jobs.length} jobs by itself. Here is today, and every job.` : 'Reading the jobs…'}</p></header>
 		<section class="pane" aria-label="Jobs">
-			<div class="pane-top"><p class="sentence">{input ? `Harbor does ${jobs.length} jobs by itself.` : 'Reading the jobs…'}</p></div>
+			{#if input}<HarborTowerDay schedules={input.schedules ?? []} {now} />{/if}
 			{#if jobs.length}
-				<div class="jobs" role="table" aria-label="Jobs">
+				<div class="jobs glass" role="table" aria-label="Every job">
 					<div class="jrow head" role="row"><span role="columnheader">Job</span><span role="columnheader">Last run</span><span role="columnheader">Next</span><span role="columnheader"></span></div>
 					{#each jobs as j (j.kind)}
 						<div class="jrow {j.tone}" class:busy={j.running} role="row" data-testid="tower-job">
@@ -314,12 +333,14 @@
 						</div>
 					{/each}
 				</div>
-				<p class="deeper">How often each job runs is set on the <a href={to('/settings/schedules')}>Schedules</a> page. Jobs that the Glowfin helper runs will join this list once Harbor is linked to it.</p>
+				<p class="deeper">How often each job runs is set on the <a href={to('/settings/schedules')}>Schedules</a> page.</p>
 			{:else if input}
 				<p class="quiet">No jobs to show.</p>
 			{/if}
 		</section>
-	{:else if tab === 'downloads'}
+	{:else}
+		<header class="top"><h1>{tabLabel}</h1><p class="lede">{tab === 'rules' ? 'The everyday rules Harbor follows, written out.' : 'What is coming in, the safety checks, and what happened.'}</p></header>
+	{#if tab === 'downloads'}
 		<section class="pane" aria-label="Downloads">
 			<div class="pane-top">
 				<p class="sentence" class:bad={dl.needsYou > 0}>{downloads ? dl.sentence : 'Reading the downloads…'}</p>
@@ -423,113 +444,136 @@
 				{/if}
 			</div>
 		</section>
+		{/if}
 	{/if}
 </div>
 
 <style>
-	.harbor-tower {
-		--sea: color-mix(in srgb, var(--info) 9%, var(--surface-1));
-		--sand: color-mix(in srgb, var(--wait) 11%, var(--surface-1));
-		--wire: color-mix(in srgb, var(--text) 30%, transparent);
-		max-width: 1200px; padding: 24px 0 48px;
-	}
-	.top h1 { margin: 0; font: 700 clamp(30px, 3vw, 40px)/1.1 var(--font-display); color: var(--text); }
-	.lede { margin: 6px 0 0; font: 500 15px/1.4 var(--font-ui); color: var(--text-muted); }
+	.harbor-tower { --sea: color-mix(in srgb, var(--harbor-aqua) 10%, var(--harbor-glass)); --sand: color-mix(in srgb, var(--harbor-amber) 10%, var(--harbor-glass)); display: grid; gap: 0; max-width: 1280px; margin: 0 auto; padding: 18px 0 48px; }
+	.glass { border: 1px solid var(--harbor-edge); background: var(--harbor-glass); -webkit-backdrop-filter: blur(18px) saturate(140%); backdrop-filter: blur(18px) saturate(140%); }
+	.top { margin-bottom: 18px; }
+	.top h1, .hero h1 { margin: 0; font: 800 clamp(32px, 4vw, 46px)/1.05 var(--font-display); letter-spacing: -0.025em; color: var(--text); }
+	.lede { margin: 6px 0 0; font: 500 16px/1.4 var(--font-ui); color: var(--text-muted); }
 	.lede.small { margin: 0 0 18px; font-size: 14px; }
-	h2 { display: flex; align-items: center; gap: 8px; margin: 0; font: 700 18px/1.2 var(--font-display); color: var(--text); }
+	h2 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; margin: 0; font: 700 21px/1.2 var(--font-display); letter-spacing: -0.015em; color: var(--text); }
+	h2 span { font: 600 14px/1.2 var(--font-ui); letter-spacing: 0; color: var(--text-muted); }
+	h2 .go { margin-inline-start: auto; font-size: 14px; }
+	.pane { display: grid; gap: 16px; min-width: 0; }
+	.pane > h2 { margin-top: 14px; }
+	.hbtn:focus-visible, .go:focus-visible, .word:focus-visible, .tile:focus-visible, .sg:focus-visible, .link:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
-	.tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 20px 0 22px; border-bottom: 1px solid var(--line); }
-	.ttab { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px; margin-bottom: -1px; border-bottom: 3px solid transparent; color: var(--text-muted); font: 600 15px/1 var(--font-ui); text-decoration: none; }
-	.ttab:hover { color: var(--text); }
-	.ttab[aria-current='page'] { border-bottom-color: var(--accent); color: var(--text); }
-	.ttab.out { font-size: 14px; }
-	.ttab .n { min-width: 20px; padding: 3px 6px; border-radius: 999px; background: var(--fail); color: #fff; font: 700 12px/1 var(--font-ui); text-align: center; box-sizing: border-box; }
-	.gap { flex: 1; }
-	.ttab:focus-visible, .hbtn:focus-visible, .go:focus-visible, .word:focus-visible, .node a:focus-visible, .link:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: 6px; }
+	/* The orb: one glowing ball says how Tower is. */
+	.hero { display: flex; align-items: center; gap: 32px; padding: 8px 0 6px; }
+	.orb { --c1: #d8fff0; --c2: var(--harbor-mint); --c3: #0f7a54; --glow: rgb(79 240 176 / 42%); --ink: #04261a; position: relative; flex: none; width: 230px; height: 230px; display: grid; place-items: center; }
+	.orb.wait { --c1: #ffe3a3; --c2: var(--harbor-amber); --c3: #a86b00; --glow: rgb(255 194 92 / 45%); --ink: #2a1a00; }
+	.orb.fail { --c1: #ffc4c4; --c2: var(--harbor-red); --c3: #9c1f1f; --glow: rgb(255 107 107 / 48%); --ink: #2b0606; }
+	.orb.idle { --c1: #e6e9f2; --c2: #8d93a8; --c3: #3d4256; --glow: rgb(141 147 168 / 30%); --ink: #11131c; }
+	.ball { position: absolute; inset: 18px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, var(--c1), var(--c2) 42%, var(--c3)); box-shadow: 0 0 60px 10px var(--glow), inset 0 -20px 40px rgb(0 0 0 / 28%); animation: breathe 2.6s ease-in-out infinite alternate; }
+	@keyframes breathe { to { transform: scale(1.04); box-shadow: 0 0 80px 18px var(--glow), inset 0 -20px 40px rgb(0 0 0 / 28%); } }
+	.in { position: relative; display: grid; justify-items: center; gap: 2px; color: var(--ink); text-align: center; }
+	.in b { font: 800 56px/1 var(--font-display); }
+	.in small { font: 800 14px/1.2 var(--font-ui); max-width: 140px; }
+	.hero-words { display: grid; gap: 10px; flex: 1; min-width: 0; }
+	.line { margin: 0; font: 500 17px/1.45 var(--font-ui); color: var(--text-muted); }
+	.issue { display: flex; align-items: center; gap: 14px; max-width: 680px; padding: 12px 12px 12px 18px; border-radius: 20px; --c: var(--harbor-amber); border-color: color-mix(in srgb, var(--c) 45%, transparent); }
+	.issue.fail { --c: var(--harbor-red); }
+	.issue .words { flex: 1; }
+	.issue .what { font-weight: 700; }
+	.issue .dot { background: var(--c); box-shadow: 0 0 10px var(--c); }
+	.acts { display: flex; flex-wrap: wrap; gap: 10px; }
 
-	.pane-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
-	.sentence { margin: 0; font: 700 clamp(22px, 2.2vw, 28px)/1.2 var(--font-display); color: var(--text); }
-	.sentence.bad { color: var(--fail-text); }
-	.hbtn { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 16px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--surface-1); color: var(--text); font: 600 14px/1 var(--font-ui); cursor: pointer; }
-	.hbtn:hover:not(:disabled) { background: var(--surface-2); }
+	.hbtn { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 16px; border: 1px solid var(--harbor-edge); border-radius: 999px; background: var(--harbor-glass); color: var(--text); font: 600 14px/1 var(--font-ui); text-decoration: none; cursor: pointer; white-space: nowrap; }
+	.hbtn:hover:not(:disabled) { background: var(--harbor-glass-2); }
 	.hbtn:disabled { opacity: 0.6; cursor: default; }
 	.hbtn.small { min-height: 32px; padding: 0 12px; font-size: 13px; }
+	.hbtn.go-btn { margin-left: auto; border: 0; background: var(--harbor-grad); color: #fff; font-weight: 700; }
 	.quiet { margin: 0; padding: 24px 0; font: 500 15px/1.4 var(--font-ui); color: var(--text-faint); }
-	.deeper { margin: 24px 0 0; font: 500 13px/1.5 var(--font-ui); color: var(--text-faint); }
+	.deeper { margin: 4px 0 0; font: 500 13px/1.5 var(--font-ui); color: var(--text-faint); }
 	.deeper a, .none a { color: var(--accent-text); font-weight: 600; }
-	.go { display: inline-flex; align-items: center; gap: 4px; color: var(--accent-text); font: 600 13px/1.2 var(--font-ui); text-decoration: none; white-space: nowrap; }
+	.go { display: inline-flex; align-items: center; gap: 4px; color: var(--accent-text); font: 700 13px/1.2 var(--font-ui); text-decoration: none; white-space: nowrap; }
 	.go:hover { text-decoration: underline; }
 	.link { padding: 0; border: 0; background: none; color: var(--accent-text); font: 600 13px/1.2 var(--font-ui); cursor: pointer; }
 
-	/* The wiring map: Harbor in the middle, a line out to every part. */
-	.map { display: grid; grid-template-columns: 1fr minmax(150px, 190px) 1fr; align-items: stretch; padding: 28px 20px; border: 1px solid var(--line); border-radius: 18px; background: var(--sea); }
-	.side { display: grid; align-content: center; gap: 14px; margin: 0; padding: 0; list-style: none; }
-	.hub { display: grid; align-content: center; justify-items: center; gap: 6px; min-height: 180px; padding: 16px 12px; border: 2px solid var(--text); border-radius: 16px; background: var(--surface-1); text-align: center; z-index: 1; }
-	.hub-name { font: 700 22px/1 var(--font-display); letter-spacing: 0.14em; color: var(--text); }
-	.hub-line { font: 500 13px/1.35 var(--font-ui); color: var(--text-muted); }
-	.node { position: relative; display: flex; }
-	.side.l .node { padding-right: 44px; justify-content: flex-end; }
-	.side.r .node { padding-left: 44px; }
-	/* The line from a box to Harbor. Broken lines are dashed and coloured. */
-	.node::after { content: ''; position: absolute; top: 50%; width: 44px; border-top: 2px solid var(--wire); }
-	.side.l .node::after { right: 0; }
-	.side.r .node::after { left: 0; }
-	.node.fail::after { border-top: 2px dashed var(--fail); }
-	.node.wait::after { border-top-color: var(--wait); }
-	.node.idle::after { border-top: 2px dotted var(--wire); }
-	.node a { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; align-items: center; width: min(100%, 300px); padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-1); box-shadow: var(--shadow-card); text-decoration: none; box-sizing: border-box; }
-	.node a:hover { box-shadow: var(--shadow-lift); }
-	.node.fail a { border-color: var(--fail); }
-	.dot, .k { width: 10px; height: 10px; border-radius: 50%; background: var(--text-faint); }
-	.ok .dot, .k.ok { background: var(--ok); }
-	.wait .dot, .k.wait { background: var(--wait); }
-	.fail .dot, .k.fail { background: var(--fail); }
-	.nm { font: 600 15px/1.25 var(--font-display); color: var(--text); overflow-wrap: anywhere; }
-	.ln { grid-column: 2; font: 500 12px/1.35 var(--font-ui); color: var(--text-muted); overflow-wrap: anywhere; }
-	.node.fail .ln { color: var(--fail-text); }
-	.key { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 12px 0 0; font: 500 12px/1.4 var(--font-ui); color: var(--text-faint); }
-	.k { display: inline-block; margin-left: 8px; }
+	/* Each connection is a tile with a live dot and its last 7 days. */
+	.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+	.tile { display: grid; align-content: start; gap: 4px; min-width: 0; padding: 14px 16px; border-radius: 18px; color: var(--text); text-decoration: none; transition: transform 160ms var(--ease-out, ease-out); }
+	.tile:hover { transform: translateY(-2px); background: var(--harbor-glass-2); }
+	.tile.fail { border-color: color-mix(in srgb, var(--harbor-red) 55%, transparent); }
+	.tile.wait { border-color: color-mix(in srgb, var(--harbor-amber) 45%, transparent); }
+	.tt { display: flex; align-items: center; gap: 10px; min-width: 0; }
+	.tt strong { font: 700 15px/1.25 var(--font-display); overflow-wrap: anywhere; }
+	.ln { font: 500 13px/1.35 var(--font-ui); color: var(--text-muted); overflow-wrap: anywhere; }
+	.tile.fail .ln { color: var(--fail-text); }
+	.dot, .k { flex: none; width: 12px; height: 12px; border-radius: 50%; background: #8d93a8; }
+	.ok > .tt .dot, .k.ok { background: var(--harbor-mint); box-shadow: 0 0 12px var(--harbor-mint); }
+	.wait > .tt .dot, .k.wait { background: var(--harbor-amber); box-shadow: 0 0 12px var(--harbor-amber); }
+	.fail > .tt .dot, .k.fail { background: var(--harbor-red); box-shadow: 0 0 12px var(--harbor-red); }
+	.week { display: flex; gap: 7px; margin-top: 8px; }
+	.wd { width: 10px; height: 10px; border-radius: 50%; background: var(--harbor-glass-2); border: 1px solid var(--harbor-edge); box-sizing: border-box; }
+	.wd.ok { background: var(--harbor-mint); border: 0; }
+	.wd.wait { background: var(--harbor-amber); border: 0; }
+	.wd.fail { background: var(--harbor-red); border: 0; box-shadow: 0 0 8px var(--harbor-red); }
+	.wd.idle { background: #8d93a8; border: 0; opacity: 0.6; }
+	.wk { font: 600 11px/1.3 var(--font-ui); color: var(--text-faint); }
+	.key { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: -4px 0 0; font: 500 12px/1.4 var(--font-ui); color: var(--text-faint); }
+	.k { display: inline-block; width: 10px; height: 10px; margin-left: 8px; box-shadow: none !important; }
 	.k:first-child { margin-left: 0; }
 
-	.pane > h2 { margin: 26px 0 10px; }
 	.issues { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
-	.issues li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-inline-start: 4px solid var(--wait); border-radius: 12px; background: var(--surface-1); }
-	.issues li.fail { border-inline-start-color: var(--fail); }
+	.issues li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-radius: 16px; border-inline-start: 4px solid var(--harbor-amber); }
+	.issues li.fail { border-inline-start-color: var(--harbor-red); }
 	.words { min-width: 0; }
 	.what { margin: 0; font: 500 14px/1.35 var(--font-ui); color: var(--text); }
 	.why { margin: 2px 0 0; font: 500 13px/1.4 var(--font-ui); color: var(--text-muted); overflow-wrap: anywhere; }
 
-	/* Jobs: one list for everything Harbor does by itself. */
-	.jobs { border: 1px solid var(--line); border-radius: 16px; background: var(--surface-1); overflow: hidden; }
-	.jrow { display: grid; grid-template-columns: minmax(0, 1fr) 150px 150px 96px; align-items: center; gap: 12px; padding: 10px 16px; border-top: 1px solid var(--line); font: 500 14px/1.35 var(--font-ui); color: var(--text-muted); }
-	.jrow.head { border-top: 0; background: var(--surface-2); font: 700 12px/1 var(--font-ui); letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-faint); }
+	/* Six colourful settings tiles, each opening its group. */
+	.sgroups { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
+	.sg { position: relative; display: grid; gap: 10px; align-content: start; padding: 16px; border-radius: 18px; overflow: hidden; color: var(--text); text-decoration: none; font: 700 15px/1.25 var(--font-ui); transition: transform 160ms var(--ease-out, ease-out); }
+	.sg:hover { transform: translateY(-2px); }
+	.badge { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: var(--c); color: #0b1220; box-shadow: 0 6px 18px -4px var(--c); }
+	.c-pink { --c: var(--harbor-pink); }
+	.c-violet { --c: var(--harbor-violet); }
+	.c-sky { --c: var(--harbor-sky); }
+	.c-aqua { --c: var(--harbor-aqua); }
+	.c-mint { --c: var(--harbor-mint); }
+	.c-amber { --c: var(--harbor-amber); }
+
+	/* Jobs: today's line, then one list for everything Harbor does by itself. */
+	.jobs { border-radius: 20px; overflow: hidden; }
+	.jrow { display: grid; grid-template-columns: minmax(0, 1fr) 150px 150px 96px; align-items: center; gap: 12px; padding: 10px 18px; border-top: 1px solid var(--harbor-edge); font: 500 14px/1.35 var(--font-ui); color: var(--text-muted); }
+	.jrow.head { border-top: 0; background: var(--harbor-glass-2); font: 700 12px/1 var(--font-ui); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-faint); }
 	.jname { display: grid; gap: 2px; min-width: 0; }
 	.jname strong { font: 600 15px/1.25 var(--font-display); color: var(--text); }
 	.jname em { font: 500 12px/1.35 var(--font-ui); font-style: normal; color: var(--text-faint); }
 	.jrow.fail .note { color: var(--fail-text); }
-	.jrow.fail { box-shadow: inset 4px 0 0 var(--fail); }
-	.jrow.busy { background: var(--sea); }
+	.jrow.fail { box-shadow: inset 4px 0 0 var(--harbor-red); }
+	.jrow.busy { background: color-mix(in srgb, var(--harbor-violet) 12%, transparent); }
 	.jrow.idle strong { color: var(--text-muted); }
 	.jact { display: flex; justify-content: flex-end; }
 
 	/* Downloads: three cards. */
+	.pane-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+	.sentence { margin: 0; font: 700 clamp(20px, 2vw, 24px)/1.25 var(--font-display); color: var(--text); }
+	.sentence.bad { color: var(--fail-text); }
 	.cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: start; }
-	.tcard { display: grid; gap: 10px; padding: 16px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface-1); min-width: 0; }
+	.tcard { display: grid; gap: 10px; padding: 16px; border: 1px solid var(--harbor-edge); border-radius: 20px; background: var(--harbor-glass); min-width: 0; }
 	.tcard.sea { background: var(--sea); }
 	.tcard.sand { background: var(--sand); }
+	.tcard h2 { font-size: 18px; align-items: center; gap: 8px; }
 	.lines { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
-	.lines li { display: grid; gap: 2px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-1); min-width: 0; }
-	.lines li.fail { border-inline-start: 4px solid var(--fail); }
+	.lines li { display: grid; gap: 2px; padding: 8px 10px; border: 1px solid var(--harbor-edge); border-radius: 12px; background: var(--harbor-glass-2); min-width: 0; }
+	.lines li.fail { border-inline-start: 4px solid var(--harbor-red); }
 	.lname { font: 600 14px/1.3 var(--font-display); color: var(--text); overflow-wrap: anywhere; }
 	.lsub { margin: 0; font: 500 12px/1.35 var(--font-ui); color: var(--text-muted); overflow-wrap: anywhere; }
-	.bar { height: 5px; margin-top: 4px; border-radius: 5px; background: color-mix(in srgb, var(--text) 10%, transparent); overflow: hidden; }
-	.bar span { display: block; height: 100%; border-radius: inherit; background: var(--info); }
+	.bar { height: 5px; margin-top: 4px; border-radius: 5px; background: var(--harbor-glass-2); overflow: hidden; }
+	.bar span { display: block; height: 100%; border-radius: inherit; background: var(--harbor-grad); }
 	.none { margin: 0; font: 500 13px/1.4 var(--font-ui); color: var(--text-faint); }
 	.warn { margin: 0; font: 600 13px/1.4 var(--font-ui); color: var(--fail-text); }
 
 	/* Rules: sentences with underlined words. */
 	.rules { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-	.rule { display: grid; gap: 10px; align-content: start; padding: 18px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface-1); }
+	.rule { display: grid; gap: 10px; align-content: start; padding: 18px; border: 1px solid var(--harbor-edge); border-radius: 20px; background: var(--harbor-glass); }
+	.rule h2 { font-size: 18px; }
 	.says { margin: 0; font: 500 17px/1.75 var(--font-ui); color: var(--text); }
 	.word { display: inline; padding: 0; border: 0; background: none; font: inherit; font-weight: 700; color: var(--accent-text); text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; cursor: pointer; }
 	span.word { cursor: default; color: var(--text); }
@@ -539,22 +583,19 @@
 	.num { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 15px; }
 	.num input { width: 84px; }
 
-	.old { display: grid; gap: 8px; margin-top: 22px; padding: 18px; border: 1px dashed var(--line-strong); border-radius: 16px; }
+	.old { display: grid; gap: 8px; margin-top: 8px; padding: 18px; border: 1px dashed var(--harbor-edge); border-radius: 20px; }
 	.old label { font: 500 13px/1.4 var(--font-ui); color: var(--text-muted); }
-	.old input { max-width: 420px; min-height: 40px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface-1); color: var(--text); font: 500 15px/1 var(--font-ui); }
+	.old input { max-width: 420px; min-height: 40px; padding: 0 14px; border: 1px solid var(--harbor-edge); border-radius: 99px; background: var(--harbor-glass); color: var(--text); font: 500 15px/1 var(--font-ui); }
 	.olds { display: grid; gap: 6px; margin: 4px 0 0; padding: 0; list-style: none; }
 	.olds li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font: 500 14px/1.4 var(--font-ui); color: var(--text-muted); }
 	.olds a { color: var(--accent-text); font-weight: 600; }
 
+	@media (max-width: 1100px) {
+		.tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+		.sgroups { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+	}
 	@media (max-width: 899px) {
 		.cols, .rules { grid-template-columns: 1fr; }
-		/* The map stands up: Harbor on top, one trunk down the left, a branch to each box. */
-		.map { grid-template-columns: 1fr; padding: 16px; }
-		.hub { order: -1; min-height: 0; padding: 14px; }
-		.side { gap: 0; margin-left: 18px; border-left: 2px solid var(--wire); }
-		.side.l .node, .side.r .node { padding: 12px 0 0 28px; justify-content: flex-start; }
-		.side.l .node::after, .side.r .node::after { left: 0; right: auto; top: calc(50% + 6px); width: 28px; }
-		.node a { width: 100%; }
 		.jrow { grid-template-columns: 1fr auto; gap: 4px 12px; }
 		.jrow.head { display: none; }
 		.jname { grid-column: 1 / -1; }
@@ -563,10 +604,21 @@
 		.jact:empty { display: none; }
 	}
 	@media (max-width: 767px) {
-		.harbor-tower { padding: 16px 16px 96px; }
-		.tabs { flex-wrap: nowrap; overflow-x: auto; margin-inline: -16px; padding-inline: 16px; scrollbar-width: none; }
-		.ttab { flex: none; }
-		.gap { display: none; }
+		.harbor-tower { padding: 12px 0 96px; }
+		.hero { flex-direction: column; align-items: flex-start; gap: 8px; }
+		.orb { width: 150px; height: 150px; align-self: center; }
+		.ball { inset: 12px; }
+		.in b { font-size: 40px; }
+		.in small { font-size: 12px; max-width: 100px; }
+		.hero h1 { font-size: 30px; }
+		.line { font-size: 15px; }
+		.issue { flex-wrap: wrap; }
+		.tiles { grid-template-columns: 1fr; }
+		.sgroups { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 		.says { font-size: 16px; }
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.ball { animation: none; }
+		.tile, .sg { transition: none; }
 	}
 </style>

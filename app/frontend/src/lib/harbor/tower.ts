@@ -33,6 +33,8 @@ export interface MapNode {
 	/** The page that fixes or adds it. */
 	href: string;
 	side: 'left' | 'right';
+	/** The status rows behind this box, for its week of dots. */
+	keys: string[];
 }
 
 const worst = (rows: Pick<StatusRow, 'tone'>[]): Tone =>
@@ -58,7 +60,8 @@ const single = (r: StatusRow, side: MapNode['side']): MapNode => ({
 	line: r.tone === 'ok' || !r.reason ? r.word : `${r.word} · ${r.reason}`,
 	tone: r.tone,
 	href: r.fix ?? '/health',
-	side
+	side,
+	keys: [r.key]
 });
 
 /**
@@ -72,7 +75,7 @@ export function towerMap(rows: StatusRow[]): MapNode[] {
 	const group = (id: string, name: string, g: StatusRow['group'], href: string, none: string, side: MapNode['side'], always = true) => {
 		const list = of(g);
 		if (!list.length && !always) return;
-		nodes.push({ id, name, ...together(list, none), href, side });
+		nodes.push({ id, name, ...together(list, none), href, side, keys: list.map((r) => r.key) });
 	};
 
 	const media = of('media');
@@ -94,7 +97,7 @@ export function towerMap(rows: StatusRow[]): MapNode[] {
 	if (space.length) {
 		const bad = space.find((r) => r.tone === 'fail') ?? space.find((r) => r.tone === 'wait');
 		const free = space.find((r) => r.key.startsWith('disk_space') && r.reason);
-		nodes.push({ id: 'space', name: 'Media space', line: bad ? `${bad.name} · ${bad.reason || bad.word}` : free?.reason || 'Folders and backups are fine', tone: worst(space), href: (bad ?? space[0]).fix ?? '/settings/library-folders', side: 'right' });
+		nodes.push({ id: 'space', name: 'Media space', line: bad ? `${bad.name} · ${bad.reason || bad.word}` : free?.reason || 'Folders and backups are fine', tone: worst(space), href: (bad ?? space[0]).fix ?? '/settings/library-folders', side: 'right', keys: space.map((r) => r.key) });
 	}
 	return nodes;
 }
