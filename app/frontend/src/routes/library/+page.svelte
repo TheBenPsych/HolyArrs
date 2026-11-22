@@ -29,7 +29,7 @@
 	import { toasts } from '#lib/core/toasts.svelte.ts';
 	import { appLocale, t as tr } from '#lib/core/i18n/i18n.svelte.ts';
 	import { shelfEntries } from '#lib/mediafiles/index.ts';
-	import { HarborShelves } from '#lib/harbor/index.ts'; // Harbor
+	import { HarborShelves, shelfListView } from '#lib/harbor/index.ts'; // Harbor
 	let titles = $state<TitleView[]>([]);
 	let loaded = $state(false);
 	let error = $state('');
@@ -653,7 +653,8 @@
 
 <div class="library" class:selecting>
 	<h1 class="sr-only">{kindTitle}</h1>
-	{#if !selecting}<HarborShelves />{/if}<!-- Harbor: shelf counts, A to Z, Tidy, gaps -->
+	{#if !selecting}<HarborShelves />{/if}<!-- Harbor: shelf tiles, space bar, poster wall -->
+	{#if selecting || shelfListView(page.url.searchParams)}<!-- Harbor: the HolyArrs list sits under "Full list" -->
 	<LibraryToolbar {phone} {kind} {kindTitle} {loaded} {error} {countText} {shelfItems} sidebarCollapsed={dlTop.collapsed} {sortFilter} {view} {setView} {sizeItems} {posterSize} {density} {listWidth} {filtersOn} bind:sortOpen bind:findOpen {findWords} bind:q {syncUrl} {columns} {libKind} {setColumns} {canManage} shownCount={shown.length} {selecting} {startSelecting} {stopSelecting} {addItems}>
 		{#snippet sidebarButton()}<IconButton icon="sidebar" label={tr('library.page.showSidebar')} onclick={() => dlTop.toggle()} data-testid="library-side-btn" />{/snippet}
 		{#snippet find()}<DlFind bind:term={() => q, setQ} shown={shown.length} total={kindTotal} searchKey={dlTop.searchKey} placeholder={findWords} note={loaded && !error ? countText : ''} testid="library-find" />{/snippet}
@@ -682,6 +683,7 @@
 
 	<LibraryList bind:this={list} {titles} {shown} {loaded} {error} {view} {kind} {libKind} {filter} {sort} {grouped} {kindTitle} {q} {filtersOn} {who} {canManage} {selecting} {picked} {lastOpenedId} {chosenCols} {density} {posterSize} {posterDetail} {seriesOfTitle} {seriesName} {phone} bind:listWidth bind:gridEl bind:listEl {progressText} {artistHref} {episodeLabel} {retryLoad} {clearFilters} {togglePick} {startSelecting} {setSort} {searchTitles} {setKeep} {refreshTitle} />
 
+	{/if}
 	<LibrarySelectBar {selecting} {phone} {kind} {busy} pickedCount={pickedShown.length} pickedIds={pickedShown.map((t) => t.id)} shownCount={shown.length} {allPicked} copyPicksCount={copyPicks.length} {phoneActs} {moveItems} {rulesItems} {pickAll} {setKeep} {searchTitles} {reviewCopies} {askDelete} {stopSelecting} />
 </div>
 

@@ -52,6 +52,9 @@ type SeriesEntry struct {
 	Uploader string  `json:"harbor_uploader,omitempty"`
 	Raw      string  `json:"harbor_raw,omitempty"`
 	Size     int64   `json:"harbor_size,omitempty"`
+	// Added is when Harbor first put this file on the shelf (RFC 3339), for
+	// the "+3 new" glow on the Shelves page.
+	Added string `json:"harbor_added,omitempty"`
 }
 
 // SeriesLeft is one raw file Harbor left out, and why.
@@ -78,6 +81,18 @@ type Report struct {
 	First string   `json:"first,omitempty"`
 	Last  string   `json:"last,omitempty"`
 	Error string   `json:"error,omitempty"`
+	// New is how many chapters or volumes arrived on the shelf in the last
+	// NewFor (a week), for the "+3 new" glow on the Shelves page.
+	New int `json:"new"`
+}
+
+// NewFor is how long a chapter counts as new on the Shelves page.
+const NewFor = 7 * 24 * time.Hour
+
+// isNew says a shelf entry arrived within NewFor of now.
+func isNew(e SeriesEntry, now time.Time) bool {
+	at, err := time.Parse(time.RFC3339, e.Added)
+	return err == nil && now.Sub(at) < NewFor
 }
 
 // Scan finds every series the engine has downloaded: series name to its raw
@@ -216,7 +231,8 @@ func (l Librarian) tidy(p Plan) Report {
 	for _, c := range append(append([]SeriesEntry{}, old.Chapters...), old.Volumes...) {
 		mine[c.File] = c
 	}
-	sf := SeriesFile{Title: p.Series, Left: rep.LeftOut, Tidied: time.Now().UTC().Format(time.RFC3339)}
+	now := time.Now().UTC()
+	sf := SeriesFile{Title: p.Series, Left: rep.LeftOut, Tidied: now.Format(time.RFC3339)}
 	seen := map[string]bool{}
 	want := map[string]bool{}
 	add := func(k Kept, e SeriesEntry) {
@@ -231,6 +247,7 @@ func (l Librarian) tidy(p Plan) Report {
 		dst := filepath.Join(folder, k.Name)
 		prev, had := mine[k.Name]
 		fresh := !had || prev.Raw != k.File.Path || prev.Size != k.File.Size || !exists(dst)
+		added := prev.Added
 		if fresh {
 			if _, made := mine[k.Name]; !made && exists(dst) {
 				// Someone's own file already has this name: it wins.
@@ -242,6 +259,9 @@ func (l Librarian) tidy(p Plan) Report {
 				continue
 			}
 			rep.Added++
+			if !had {
+				added = now.Format(time.RFC3339)
+			}
 		}
 		if !seen[k.File.Source] {
 			seen[k.File.Source] = true
@@ -252,7 +272,7 @@ func (l Librarian) tidy(p Plan) Report {
 		}
 		uploader := k.File.Raw.Group
 		add(k, SeriesEntry{Number: k.Number.Float(), File: k.Name, Title: k.Title, Source: k.File.Source,
-			Official: k.Official, Uploader: uploader, Raw: k.File.Path, Size: k.File.Size})
+			Official: k.Official, Uploader: uploader, Raw: k.File.Path, Size: k.File.Size, Added: added})
 	}
 	for name, c := range mine {
 		if !want[name] && c.Raw != "" { // Harbor made it and no longer wants it
@@ -262,6 +282,11 @@ func (l Librarian) tidy(p Plan) Report {
 		}
 	}
 	rep.Chapters, rep.Volumes, sf.Total = len(sf.Chapters), len(sf.Volumes), len(sf.Chapters)
+	for _, e := range append(append([]SeriesEntry{}, sf.Chapters...), sf.Volumes...) {
+		if isNew(e, now) {
+			rep.New++
+		}
+	}
 	if sf.Chapters == nil {
 		sf.Chapters = []SeriesEntry{}
 	}

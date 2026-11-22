@@ -7,6 +7,8 @@ export { default as HarborToday } from './HarborToday.svelte';
 export { default as HarborBoard } from './HarborBoard.svelte';
 export { default as HarborAsk } from './HarborAsk.svelte';
 export { default as HarborShelves } from './HarborShelves.svelte';
+export { shelfListView } from './shelves.ts';
+export { openInGlowfin, glowfinLink } from './glowfin.ts';
 export { default as HarborTidy } from './HarborTidy.svelte';
 export { default as HarborTitleStrip } from './HarborTitleStrip.svelte';
 export { default as HarborTower } from './HarborTower.svelte';

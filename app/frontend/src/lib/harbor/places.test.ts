@@ -50,7 +50,7 @@ describe('harborPlaces', () => {
 		expect(tabs.today).toEqual(['Today', 'Calendar']);
 		expect(tabs.explore).toEqual(['Explore', 'New & popular', 'Search']);
 		expect(tabs.board).toEqual(['Board', 'Requests']);
-		expect(tabs.shelves).toEqual(['Everything', 'Movies', 'Shows', 'Music', 'Manga', 'Stats', 'Tidy']);
+		expect(tabs.shelves).toEqual(['Everything', 'Movies', 'Shows', 'Anime', 'Music', 'Manga', 'Stats', 'Tidy']);
 		expect(tabs.tower).toEqual(['Overview', 'Jobs', 'Downloads', 'History', 'Rules', 'Status', 'Plugins', 'Settings']);
 	});
 	it('loses no page the old sidebar listed', () => {

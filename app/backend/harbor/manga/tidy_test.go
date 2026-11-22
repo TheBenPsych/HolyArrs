@@ -147,7 +147,24 @@ func TestDropFolder(t *testing.T) {
 	}
 	// A second run changes nothing.
 	reps, _ = l.TidyAll()
-	if reps[0].Added != 0 || reps[0].Removed != 0 || reps[0].Volumes != 2 {
+	// Both volumes arrived just now, so both still count as new on the shelf.
+	if reps[0].Added != 0 || reps[0].Removed != 0 || reps[0].Volumes != 2 || reps[0].New != 2 {
 		t.Fatalf("second run %+v", reps[0])
+	}
+}
+
+func TestIsNew(t *testing.T) {
+	now := time.Date(2026, 11, 22, 12, 0, 0, 0, time.UTC)
+	for _, c := range []struct {
+		added string
+		want  bool
+	}{
+		{"2026-11-21T12:00:00Z", true},
+		{"2026-11-10T12:00:00Z", false},
+		{"", false},
+	} {
+		if got := isNew(SeriesEntry{Added: c.added}, now); got != c.want {
+			t.Errorf("isNew(%q) = %v", c.added, got)
+		}
 	}
 }

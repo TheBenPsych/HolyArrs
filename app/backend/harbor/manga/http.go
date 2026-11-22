@@ -282,6 +282,18 @@ func (s *Service) engineRoutes(m *http.ServeMux) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		_, _ = io.Copy(w, io.LimitReader(res.Body, 8<<20))
 	})
+	// The cover Harbor keeps beside a series on the shelf (Manga/<Title>/cover.jpg),
+	// for the manga posters on the Shelves page.
+	m.HandleFunc("GET /api/v1/harbor/manga/shelf-cover", func(w http.ResponseWriter, r *http.Request) {
+		name := r.URL.Query().Get("series")
+		if s == nil || s.Lib.Library == "" || strings.TrimSpace(name) == "" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Cache-Control", "private, max-age=3600")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		http.ServeFile(w, r, filepath.Join(s.Lib.Library, SafeName(name), "cover.jpg"))
+	})
 	m.HandleFunc("GET /api/v1/harbor/manga/queue", func(w http.ResponseWriter, r *http.Request) {
 		if off(w) {
 			return

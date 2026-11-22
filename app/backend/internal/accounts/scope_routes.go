@@ -37,6 +37,8 @@ var RouteScopes = map[string]string{
 	"GET /api/v1/library/stats/watched":                          webserver.ScopeAdmin,
 	"GET /api/v1/library/watched-by-anyone":                      webserver.ScopeAdmin,
 	"GET /api/v1/media-servers/watching":                         webserver.ScopeAdmin,
+	"GET /api/v1/harbor/shelves/plays":                           webserver.ScopeAdmin,
+	"GET /api/v1/harbor/shelves/glowfin":                         webserver.ScopeAdmin,
 	"GET /api/v1/harbor/finish":                                  webserver.ScopeRead,
 	"GET /api/v1/harbor/names":                                   webserver.ScopeRead,
 	"GET /api/v1/settings/watch-history":                         webserver.ScopeAdmin,

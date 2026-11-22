@@ -5,7 +5,7 @@ import { session } from '#lib/core/session.svelte.ts';
 // There is no mixed Library page: a link without a kind opens Movies, TV shows or Music (the one used last), keeping any other search words in the link.
 export const load: Load = ({ url }) => {
 	const k = url.searchParams.get('kind');
-	if (k === 'movie' || k === 'show' || k === 'artist') return;
+	if (k === 'movie' || k === 'show' || k === 'artist' || k === 'anime' || k === 'manga') return; // Harbor: Anime and Manga shelves
 	const off = (part: string) => partsNow.answer?.parts.find((p) => p.part === part)?.on === false;
 	const allowed = (
 		[
