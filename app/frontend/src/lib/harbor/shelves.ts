@@ -180,6 +180,26 @@ export interface TidyInput {
 	binned: number | null;
 }
 
+/** bestHeight is the tallest picture among a title's files (0 when none is known). */
+export function bestHeight(t: TitleView): number {
+	let h = 0;
+	for (const s of t.slots) {
+		const q = s.file?.Quality as { resolution?: number } | undefined;
+		if (q?.resolution && q.resolution > h) h = q.resolution;
+	}
+	return h;
+}
+
+/** lowQuality is the movies whose best file is DVD quality or worse (576 lines or
+ *  fewer), best-loved first. Harbor can't see Glowfin's play counts, so "most
+ *  loved" (score weighted by how many people voted) stands in for most watched. */
+export function lowQuality(titles: TitleView[]): TitleView[] {
+	const love = (t: TitleView) => (t.score ?? 0) * Math.log10(10 + (t.votes ?? 0));
+	return titles
+		.filter((t) => t.kind === 'movie' && bestHeight(t) > 0 && bestHeight(t) <= 576)
+		.sort((a, b) => love(b) - love(a) || a.name.localeCompare(b.name));
+}
+
 export function noPoster(t: TitleView): boolean {
 	return !t.artwork?.length;
 }
@@ -192,10 +212,12 @@ export function tidyItems(i: TidyInput): TidyItem[] {
 	const gapShows = i.titles.filter((t) => t.kind === 'show' && hasGap(t)).length;
 	const gapMovies = i.titles.filter((t) => t.kind === 'movie' && hasGap(t)).length;
 	const posters = i.titles.filter(noPoster).length;
+	const lowq = lowQuality(i.titles).length;
 	if (betterMovies) out.push({ key: 'better-movies', count: betterMovies, unit: betterMovies === 1 ? 'movie' : 'movies', what: 'Waiting for a better copy', why: 'Files below your quality rule, like an old 720p where a good 1080p is out. Harbor upgrades them as copies appear.', action: 'See them', href: '/library?kind=movie&show=better' });
 	if (betterShows) out.push({ key: 'better-shows', count: betterShows, unit: betterShows === 1 ? 'show' : 'shows', what: 'Episodes waiting for a better copy', why: 'Some episodes are below the show’s quality rule.', action: 'See them', href: '/library?kind=show&show=better' });
 	if (gapShows) out.push({ key: 'gap-shows', count: gapShows, unit: gapShows === 1 ? 'show' : 'shows', what: 'Episodes missing', why: 'Aired episodes of shows you follow that are not on Glowfin yet.', action: 'See them', href: '/library?kind=show&show=missing' });
 	if (gapMovies) out.push({ key: 'gap-movies', count: gapMovies, unit: gapMovies === 1 ? 'movie' : 'movies', what: 'Asked for but not here yet', why: 'Movies on the shelf with no file yet.', action: 'See them', href: '/library?kind=movie&show=missing' });
+	if (lowq) out.push({ key: 'low-quality', count: lowq, unit: lowq === 1 ? 'movie' : 'movies', what: 'Only in DVD quality or worse', why: 'Best-loved first. Harbor can look for a better copy, up to 1080p.', action: 'See the list', href: '#low-quality' });
 	if (posters) out.push({ key: 'posters', count: posters, unit: posters === 1 ? 'title' : 'titles', what: 'Missing poster', why: 'Open one and pick its match again, or refresh its details.', action: 'Fix one at a time', href: '#posters' });
 	if (i.missingSubs) out.push({ key: 'subs', count: i.missingSubs, unit: i.missingSubs === 1 ? 'file' : 'files', what: 'Missing subtitles', why: 'Files without the subtitle languages you asked for.', action: 'Find subtitles', href: '/library/missing-subtitles' });
 	if (i.binned) out.push({ key: 'bin', count: i.binned, unit: i.binned === 1 ? 'file' : 'files', what: 'Waiting in the bin', why: 'Removed files are kept for a while so you can undo.', action: 'Look or undo', href: '/library/deleted' });
