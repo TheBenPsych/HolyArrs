@@ -79,7 +79,7 @@
 <style>
 	.harbor-top {
 		position: sticky; top: 0; z-index: 30; display: flex; flex-direction: column; gap: 6px;
-		padding: 12px var(--gutter) 10px;
+		padding: calc(12px + env(safe-area-inset-top)) var(--gutter) 10px;
 		/* A soft fade, not a slab: the page drifts under the floating glass. */
 		background: linear-gradient(to bottom, color-mix(in srgb, var(--bg) 92%, transparent) 0, color-mix(in srgb, var(--bg) 70%, transparent) 70%, transparent);
 		transition: transform var(--bar-glide, 0.3s ease), background-color var(--dur-slow, 0.4s) var(--ease-out, ease);
@@ -158,7 +158,7 @@
 	}
 	/* Phones: the places move to the floating tab bar at the bottom; the top keeps the mark, search, alerts and you. */
 	@media (max-width: 767px) {
-		.harbor-top { padding: 8px var(--gutter) 6px; gap: 4px; }
+		.harbor-top { padding: calc(8px + env(safe-area-inset-top)) var(--gutter) 6px; gap: 4px; }
 		.row { min-height: 46px; }
 		.pill { display: none; }
 		.word { font-size: 18px; }
