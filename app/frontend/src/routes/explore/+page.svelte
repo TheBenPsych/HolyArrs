@@ -29,7 +29,7 @@
 	import Icon from '#lib/ui/Icon.svelte';
 	import { artistSheets } from '#lib/requests/index.ts';
 	import { libraryTitles, ownedLibrary, partOff, partOn } from '#lib/mediafiles/index.ts';
-	import { anchorDelta, canReturn, putOffsets, readAnchor, readOffsets, type ExploreReturn, headPath, serverRow, tailPath, type HeadAnswer, type TailAnswer, markTransitions, dedupeTop, filterRows, parseType, typeHref, enoughCards, genreRowPath, genreCardHref, genreRowAfter, GENRE_ROW_MAX, ROW_MIN, type GenreRowCard, type ExploreType, TopServicesRow, ExploreHero, CategoryStrip, GenreBanner, leaveOut, newHref, newServicesPath, type NewServicesAnswer, whyShown } from '#lib/discover/index.ts';
+	import { anchorDelta, canReturn, putOffsets, readAnchor, readOffsets, type ExploreReturn, headPath, serverRow, tailPath, type HeadAnswer, type TailAnswer, markTransitions, dedupeTop, filterRows, parseType, typeHref, enoughCards, genreRowPath, genreCardHref, genreRowAfter, GENRE_ROW_MAX, ROW_MIN, type GenreRowCard, type ExploreType, TopServicesRow, CategoryStrip, GenreBanner, leaveOut, newHref, newServicesPath, type NewServicesAnswer } from '#lib/discover/index.ts';
 	import { detailPath, remember, MetadataNotice } from '#lib/metadata/index.ts';
 	import { QuickAsk } from '#lib/requests/index.ts';
 	import { MusicTrendingRows, musicCardHref, MusicGenreTiles } from '#lib/music/index.ts';
@@ -41,6 +41,7 @@
 	import { session } from '#lib/core/session.svelte.ts';
 	import type { Ask, TitleView } from '#lib/core/types.ts';
 	import { onTheaterExit } from '#lib/core/trailer/theater.svelte.ts';
+	import { HarborExploreTop, HarborExploreRows, harborGet, gotCard } from '#lib/harbor/index.ts'; // Harbor
 
 	let loaded = $state(false);
 	let failed = $state(false);
@@ -429,7 +430,7 @@
 	/** Every card is matched against the Library (by TMDB or MusicBrainz id), so owned titles read as owned in every row. */
 	const owned = $derived(ownedIndex(titles));
 	function live(c: ExploreCard): ExploreCard {
-		return matchOwned(flow ? flow.live(c) : c, owned);
+		return gotCard(matchOwned(flow ? flow.live(c) : c, owned)); // Harbor: + Get on this visit
 	}
 
 	// Library titles open their page; other movies and shows open their details.
@@ -449,7 +450,8 @@
 	}
 
 	// Ask is one tap (no sheet); Add opens its sheet (folder and Pick rules).
-	const quick = (c: ExploreCard, act: 'add' | 'ask') => void (act === 'ask' ? flow?.askNow(c) : flow?.open(c, act));
+	// Harbor: + Get is one tap for everyone and follows the household's quality rules (lib/harbor/get.svelte.ts); it never opens a sheet.
+	const quick = (c: ExploreCard, _act: 'add' | 'ask') => void ((c.kind === 'movie' || c.kind === 'show') && cardTmdb(c) ? harborGet(c.kind, cardTmdb(c), c.name) : flow?.open(c, _act));
 
 	/** Movies and shows draw wide title cards; artists keep their square cards. */
 	const wideKind = (k: string): boolean => k === 'movie' || k === 'show';
@@ -541,6 +543,7 @@
 <div class="explore" onclick={opened}>
 	<!-- The sidebar and the pills say where you are; the page opens straight on its pills and hero. -->
 	<h1 class="sr-only">{t('discover.explore.explore')}</h1>
+	{#if type !== 'music' && heroCards.length}<HarborExploreTop cards={heroCards.map(live)} hrefOf={cardHref} onget={(c) => void quick(c, 'add')} genresOf={(c) => heroGenres[`${c.kind}:${cardTmdb(c)}`] ?? []} />{/if}<!-- Harbor -->
 	<div class="types-mark" bind:this={typesMark} aria-hidden="true"></div>
 	<div class="types" class:stuck={typesStuck} data-pin-pills bind:this={typesBox} onpointerdowncapture={measurePick} onkeydowncapture={measurePick}>
 		<SegmentedControl options={typeOptions} value={type} label={t('discover.explore.show')} testid="explore-type" announce={(l) => t('discover.explore.showing', { label: l })} onchange={setType} />
@@ -612,14 +615,7 @@
 			<EmptyState icon="compass" title={t('discover.explore.exploreIsGettingReady')} text={t('discover.explore.rowsFillInWithin')} action={{ label: t('discover.explore.search'), href: to('/search'), icon: 'search' }} />
 		{:else}
 			{#if heroCards.length}
-				{@const h = live(heroCards[heroAt % heroCards.length])}
-				<ExploreHero kind={h.kind === 'show' ? 'show' : 'movie'} tmdb={cardTmdb(h)} title={h.name} href={cardHref(h)} backdrop={h.wide ?? h.image} poster={h.image} vtName={h.vtName} subtitle={h.year ? (h.kind === 'show' ? t('discover.explore.yearShow', { year: h.year }) : t('discover.explore.yearMovie', { year: h.year })) : h.subtitle} settled={headLoaded && !busy}>
-					{#snippet action()}{@render heroAction(h)}{/snippet}
-					{#snippet badge()}
-						{@const why = whyShown({ kind: h.kind, tmdb: cardTmdb(h) ?? '', genres: heroGenres[`${h.kind}:${cardTmdb(h)}`], fresh: h.fresh }, { taste })}
-						{#if why.length}<ul class="why" aria-label={t('discover.explore.whyItIsFeatured')}>{#each why as w (w.kind)}<li class="why-{w.kind}">{w.text}</li>{/each}</ul>{/if}
-					{/snippet}
-				</ExploreHero>
+				<!-- Harbor: the big top picture sits at the top of the page (HarborExploreTop). -->
 			{:else if heroWait && !genreView.genreOn}
 				<div class="hero-wait" data-testid="hero-placeholder" aria-hidden="true"><Skeleton shape="block" /></div>
 			{/if}
@@ -646,6 +642,7 @@
 					{/snippet}
 				</GenreBanner>
 			{/if}
+			{#if !genreView.genreOn}<HarborExploreRows {type} {live} hrefOf={cardHref} />{/if}<!-- Harbor -->
 			{#if !genreView.genreOn && stripView.strip.length}<CategoryStrip tiles={stripView.strip} {type} onopen={stripView.stripOpened} />{/if}
 			{#each rows as row, ri (row.id)}
 				{#if row.type === 'top_services'}
@@ -764,10 +761,6 @@
 	.genre-tiles { padding: 14px; }
 	@media (max-width: 767px) { .genre-pick :global(.panel) { max-width: calc(100vw - 16px); } .genre-tiles { padding: 10px; } }
 	.sentinel { height: 1px; }
-	/* Hero badges, next to the facts line: small glass pills. */
-	.why { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; padding: 0; list-style: none; }
-	.why li { font: 600 12px/1 var(--font-ui); letter-spacing: .02em; padding: 6px 10px; border-radius: 999px; color: #fff; background: rgb(255 255 255 / 14%); border: 1px solid rgb(255 255 255 / 22%); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
-	:global(html[data-look='minimal']) .why li { -webkit-backdrop-filter: none; backdrop-filter: none; }
 	.row-wrap { display: contents; }
 	/* Wide title rows sit almost edge to edge: about 279px cards at a 1536px window with a 5px gap. */
 	@media (min-width: 768px) { .row-wrap.wide-row { --shelf-gap: 5px; } }

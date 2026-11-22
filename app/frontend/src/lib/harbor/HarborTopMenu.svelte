@@ -9,7 +9,11 @@
 	import type { Snippet } from 'svelte';
 	import Icon, { type IconName } from '#lib/ui/Icon.svelte';
 	import { SearchField, topBar } from '#lib/discover/index.ts';
+	import { page } from '$app/state';
+	import { appPath } from '#lib/core/paths.ts';
 	import HarborAsk from './HarborAsk.svelte';
+	import HarborSearch from './HarborSearch.svelte';
+	import { openSearch, ownField } from './search.svelte.ts';
 	import type { HarborPlace } from './places.ts';
 
 	let {
@@ -41,6 +45,8 @@
 	} = $props();
 
 	const tabs = $derived(place && place.tabs.length > 1 ? place.tabs : []);
+	// Search and Settings keep their own field; everywhere else the pill opens the one search panel.
+	const keepField = $derived(ownField(appPath(page.url.pathname)));
 </script>
 
 <header class="ui-topbar harbor-top" class:away={topBar.hidden} class:has-tabs={tabs.length > 0} data-testid="harbor-top">
@@ -62,8 +68,13 @@
 			{/each}
 		</nav>
 		<div class="tools">
-			<div class="srch"><HarborAsk><SearchField {searchKey} /></HarborAsk></div>
-			<a class="ib glass phone-search" href={searchHref} aria-label="Search"><Icon name="search" size={20} /></a>
+			{#if keepField}
+				<div class="srch"><HarborAsk><SearchField {searchKey} /></HarborAsk></div>
+				<a class="ib glass phone-search" href={searchHref} aria-label="Search"><Icon name="search" size={20} /></a>
+			{:else}
+				<button type="button" class="srch-pill glass" onclick={() => openSearch()} aria-haspopup="dialog" data-testid="harbor-search-pill"><Icon name="search" size={18} /><span class="t">Search everything</span><kbd>{searchKey}</kbd></button>
+				<button type="button" class="ib glass phone-search" onclick={() => openSearch()} aria-label="Search everything" aria-haspopup="dialog"><Icon name="search" size={20} /></button>
+			{/if}
 			{#if tools}<div class="me">{@render tools()}</div>{/if}
 		</div>
 	</div>
@@ -75,6 +86,7 @@
 		</nav>
 	{/if}
 </header>
+<HarborSearch />
 
 <style>
 	.harbor-top {
@@ -126,6 +138,11 @@
 	.srch { min-width: 0; }
 	.srch :global(.ui-search) { width: clamp(200px, 20vw, 300px); }
 	.phone-search { display: none; }
+	.srch-pill { display: flex; align-items: center; gap: 10px; width: clamp(200px, 20vw, 300px); height: 44px; padding: 0 8px 0 16px; border-radius: 999px; color: var(--text-muted); font: 600 14px/1 var(--font-ui); cursor: pointer; }
+	.srch-pill .t { flex: 1; text-align: start; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.srch-pill kbd { padding: 3px 7px; border: 1px solid var(--harbor-edge); border-radius: 6px; font: 600 11px/1.3 var(--font-ui); color: var(--text-muted); }
+	.srch-pill:hover { color: var(--text); background: var(--harbor-glass-2); }
+	.srch-pill:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 	.me { display: flex; align-items: center; gap: 6px; }
 
@@ -146,14 +163,14 @@
 	/* Narrower screens: the places show icons only, then the search becomes a button. */
 	@media (max-width: 1239px) {
 		.pill a { padding: 0 14px; }
-		.srch :global(.ui-search) { width: clamp(180px, 18vw, 240px); }
+		.srch :global(.ui-search), .srch-pill { width: clamp(180px, 18vw, 240px); }
 	}
 	@media (max-width: 1099px) {
 		.pill a .t { display: none; }
 		.pill a { padding: 0 13px; }
 	}
 	@media (max-width: 899px) {
-		.srch { display: none; }
+		.srch, .srch-pill { display: none; }
 		.phone-search { display: grid; }
 	}
 	/* Phones: the places move to the floating tab bar at the bottom; the top keeps the mark, search, alerts and you. */

@@ -200,7 +200,18 @@ func (t *TMDB) Discover(ctx context.Context, row, kind, ref, genre string) ([]Di
 		q.Set("sort_by", "popularity.desc")
 		q.Set("include_adult", "false")
 	default:
-		return nil, fmt.Errorf("unknown row %q", row)
+		// Harbor: its own Explore rows (harbor_rows.go).
+		hp, hq, ok := harborRow(row, kind, time.Now())
+		if !ok {
+			return nil, fmt.Errorf("unknown row %q", row)
+		}
+		if hp == "" {
+			return []DiscoverItem{}, nil
+		}
+		path = hp
+		for k, v := range hq {
+			q[k] = v
+		}
 	}
 	b, err := t.get(ctx, path, q)
 	if err != nil {

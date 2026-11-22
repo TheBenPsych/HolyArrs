@@ -3,6 +3,10 @@
 // plain titles fall through to HolyArrs's own search, unchanged.
 // Design: harbor-5-from-scratch, screen 5.
 
+import type { Ask } from '#lib/core/types.ts';
+import { askLane } from './board.ts';
+import { ago, clock } from './today.ts';
+
 export type AskCommand =
 	| { kind: 'get'; q: string }
 	| { kind: 'why'; q: string }
@@ -74,4 +78,18 @@ export function bestMatch<T extends { name: string }>(list: T[], q: string): T |
 	const want = norm(q.replace(/\b(season|s)\s*\d+\b.*$/i, '').replace(/\b(episode|ep|e)\s*\d+\b.*$/i, '')) || norm(q);
 	if (!want) return undefined;
 	return list.find((x) => norm(x.name) === want) ?? list.find((x) => norm(x.name).startsWith(want)) ?? list.find((x) => norm(x.name).includes(want));
+}
+
+/** askStory says where a request stands, in one or two sentences. */
+export function askStory(a: Ask): string {
+	if (a.state === 'turned_down') return `${a.decided_by?.name ?? 'Someone'} said no${a.note ? `: “${a.note}”` : ''}.`;
+	const placed = askLane(a, undefined);
+	if (!placed) return '';
+	const who = a.asked_by?.name ? `${a.asked_by.name} asked ${ago(a.asked_at, new Date())}.` : '';
+	if (placed.lane === 'asked') return `It is waiting for a yes. ${who}`;
+	if (placed.lane === 'landed') return `It landed ${ago(a.available_at, new Date())} and is on Glowfin.`;
+	if (placed.lane === 'coming') return `It is downloading now. ${who}`;
+	if (placed.lane === 'inspection') return 'It is downloaded and being checked and filed.';
+	const next = a.step?.next_search ? ` Next try ${clock(new Date(a.step.next_search))}.` : '';
+	return `${placed.trouble ?? `Harbor is still looking: ${placed.line.replace(/\.$/, '')}.`}${next}`;
 }

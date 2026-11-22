@@ -123,6 +123,8 @@ func (h *Handlers) Routes(m *http.ServeMux) {
 	reviews := h.reviewHandlers()
 	reviews.Routes(m)
 	m.HandleFunc("GET /api/v1/discover", h.discoverRow)
+	m.HandleFunc("GET /api/v1/harbor/finish", h.harborFinish) // Harbor
+	m.HandleFunc("GET /api/v1/harbor/names", h.harborNames)   // Harbor
 	m.HandleFunc("GET /api/v1/watch-services", h.watchServices)
 	m.HandleFunc("GET /api/v1/explore/service-top", h.exploreServiceTop)
 	m.HandleFunc("GET /api/v1/home", h.home)

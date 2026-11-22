@@ -7,7 +7,7 @@
 	import { to, appPath } from '#lib/core/paths.ts';
 	import '../app.css';
 	import { onMount, tick, type Snippet } from 'svelte';
-	import { watchTitles, harborNav, harborTabs, harborPlaces, placeHere, HarborTopMenu } from '#lib/harbor/index.ts';
+	import { watchTitles, harborNav, harborTabs, harborPlaces, placeHere, HarborTopMenu, harborSearchKey } from '#lib/harbor/index.ts';
 	import { navigating, page } from '$app/state';
 	import { afterNavigate, beforeNavigate, goto, onNavigate, preloadCode } from '$app/navigation';
 	import { hideReconnecting, loaderReady, navEnded, navWatch, showReconnecting } from '#lib/core/loader.ts';
@@ -236,6 +236,7 @@
 		} else if ((mod && (e.key === 'k' || e.key === 'K')) || (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey && !typingIn(e.target))) {
 			// Ctrl+K and / focus the one search field (the top bar; on phones the Search page's) and open Search.
 			e.preventDefault();
+			if (harborSearchKey(path)) return; // Harbor: the one search panel (lib/harbor/HarborSearch).
 			showBar();
 			if (!path.startsWith('/search')) rememberReturn();
 			const shown = focusField(true);
