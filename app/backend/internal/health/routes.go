@@ -64,6 +64,7 @@ func (h *Handlers) Routes(m *http.ServeMux) {
 	m.HandleFunc("GET /api/v1/health/disks", h.disks)
 	m.HandleFunc("GET /api/v1/settings/health", h.getSettings)
 	m.HandleFunc("PUT /api/v1/settings/health", h.putSettings)
+	h.harborRoutes(m) // Harbor: the Tower's week of dots and live graphs (harbor_tower.go)
 }
 
 // NotOwner says whether the caller is signed in and is not the owner.

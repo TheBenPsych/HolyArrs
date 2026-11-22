@@ -269,7 +269,11 @@ func (e *Engine) Run(ctx context.Context) ([]domain.HealthCheck, error) {
 	if err != nil {
 		return nil, err
 	}
-	return e.keep(ctx, rs, nil)
+	cs, err := e.keep(ctx, rs, nil)
+	if err == nil {
+		e.harborNote(ctx) // Harbor: the Tower's week of health dots (harbor_tower.go)
+	}
+	return cs, err
 }
 
 // List returns the stored results, worst first.
