@@ -63,7 +63,16 @@ addresses and keys of Radarr, Sonarr, Lidarr, Prowlarr, Bazarr and Seerr, so
 looks at the old apps and never changes them. Running it again updates Harbor
 and keeps its settings. `HARBOR_DRY=1` before `bash` shows what it would do
 and changes nothing; `HARBOR_MODE=full` makes the media folder writable, for
-the switch-over.
+the switch-over. Running it again keeps the mode Harbor already has.
+
+When the video shrinker (Tdarr, set up by Glowfin's `setup-tdarr.sh`) is on
+Tower, the install also gives Harbor Tdarr's folder read-only at `/tdarr`
+(with one writable folder of its own, `/tdarr/harbor`) and the originals
+folder read-only at `/tdarr-backup`. That is what **Tower > Shrinker** reads
+(`app/backend/internal/health/harbor_shrinker.go`). Harbor only leaves notes
+in `/tdarr/harbor` (settings, Put back, Fix it, Skip tonight); Tower's helper
+(`tdarr-watch.sh harbor`, every 2 minutes) does the work. Harbor never talks
+to Tdarr and never changes a video.
 
 ## Manga engine trial
 

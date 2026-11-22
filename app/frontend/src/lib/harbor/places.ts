@@ -85,10 +85,11 @@ export function harborPlaces(sections: HarborSection[]): HarborPlace[] {
 	// Harbor's own pages that the old sidebar never listed.
 	const manager = rest.some((i) => i.href === '/library/stats');
 	for (const i of rest) add(tabHome(i.href, has), keeps(i));
-	// Tower reads: Overview, Jobs, Downloads, History, Rules, then the HolyArrs detail pages (sorted below).
+	// Tower reads: Overview, Jobs, Downloads, History, Shrinker, Rules, then the HolyArrs detail pages (sorted below).
 	if (has.has('tower')) {
 		add('tower', { href: '/tower?tab=jobs', label: 'Jobs' });
 		add('tower', { href: '/tower?tab=rules', label: 'Rules' });
+		add('tower', { href: '/tower?tab=shrinker', label: 'Shrinker' });
 	}
 	if (has.has('explore') && !get('explore')!.tabs.some((t) => t.href === '/search')) add('explore', { href: '/search', label: 'Search' });
 	// Anime and Manga are shelves of their own (bold redesign part 5). Manga is for managers, never Kids.
@@ -97,7 +98,7 @@ export function harborPlaces(sections: HarborSection[]): HarborPlace[] {
 		add('shelves', { href: '/library?kind=manga', label: 'Manga' });
 		add('shelves', { href: '/library/tidy', label: 'Tidy' });
 	}
-	sortTabs(get('tower'), ['/tower', '/tower?tab=jobs', '/downloads', '/downloads/history', '/tower?tab=rules', '/health', '/plugins', '/settings']);
+	sortTabs(get('tower'), ['/tower', '/tower?tab=jobs', '/downloads', '/downloads/history', '/tower?tab=shrinker', '/tower?tab=rules', '/health', '/plugins', '/settings']);
 	sortTabs(get('shelves'), ['/library', '/library?kind=movie', '/library?kind=show', '/library?kind=anime', '/library?kind=artist', '/library?kind=manga', '/library/stats', '/library/tidy']);
 	return places;
 }
