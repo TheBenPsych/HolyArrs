@@ -174,6 +174,7 @@ func (s *Service) Withdraw(ctx context.Context, id int64, p Person, staff bool) 
 // CheckReady marks approved asks whose movie has a file in the Library as
 // available and tells the people who asked. It returns how many it marked.
 func (s *Service) CheckReady(ctx context.Context) (int, error) {
+	s.harborSettleOwned(ctx) // Harbor: approve waiting requests already in the Library (harbor_owned.go)
 	// Followed movies whose file is now in are told here too, right after their import.
 	if _, err := s.TellMovieFollows(ctx); err != nil {
 		log.Printf("asks: followed movies ready: %v", err)
