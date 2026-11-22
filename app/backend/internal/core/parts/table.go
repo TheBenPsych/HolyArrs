@@ -423,6 +423,7 @@ var routeOwners = map[string]Owner{
 	"GET /api/v1/library/stats":               Media,
 	"GET /api/v1/library/stats/watched":       Media,
 	"GET /api/v1/media-servers/watch-links":   Media,
+	"GET /api/v1/media-servers/watching":      Media,
 	"GET /api/v1/my/watched":                  Media,
 	"GET /api/v1/library/watched-by-anyone":   Media,
 	"GET /api/v1/search/suggest":              Media,

@@ -145,3 +145,71 @@ export function ago(iso: string | undefined, now: Date): string {
 	const d = Math.round(s / 86400);
 	return d === 1 ? 'yesterday' : `${d} days ago`;
 }
+
+// ---- The bold Today (design harbor-10, screen 1; build list part 2) ----
+
+/** greetWord is "Good morning", "Good afternoon" or "Good evening". */
+export function greetWord(now: Date): string {
+	const h = now.getHours();
+	return h >= 4 && h < 12 ? 'Good morning' : h >= 12 && h < 17 ? 'Good afternoon' : 'Good evening';
+}
+
+/** whenWords says a time ahead as "Tonight 9 PM", "Today 3 PM" or "Tomorrow 10 AM". */
+export function whenWords(at: Date, now: Date): string {
+	const time = at.toLocaleTimeString([], { hour: 'numeric', minute: at.getMinutes() ? '2-digit' : undefined });
+	if (sameDay(at, now)) return `${at.getHours() >= 17 ? 'Tonight' : 'Today'} ${time}`;
+	const tomorrow = new Date(now);
+	tomorrow.setDate(tomorrow.getDate() + 1);
+	if (sameDay(at, tomorrow)) return `Tomorrow ${time}`;
+	return `${at.toLocaleDateString([], { weekday: 'long' })} ${time}`;
+}
+
+export interface Upcoming {
+	key: string;
+	/** The show's name. */
+	name: string;
+	/** "S4 E4". */
+	ep: string;
+	at: Date;
+	/** "Tonight 9 PM". */
+	when: string;
+	poster?: string;
+	href: string;
+}
+
+/**
+ * nextDay lists the new episodes that air in the next 24 hours and that
+ * Harbor will grab by itself (shows kept up to date, not already on the
+ * shelves), soonest first. Only episodes with a real air time count.
+ */
+export function nextDay(calendar: CalendarEntry[], now: Date): Upcoming[] {
+	const end = now.getTime() + 86_400_000;
+	const out: Upcoming[] = [];
+	const seen = new Set<string>();
+	for (const e of calendar) {
+		if (e.kind !== 'episode' || !e.timed || e.state === 'in_library' || e.keep_up_to_date === false) continue;
+		const at = new Date(e.date);
+		if (!(at.getTime() > now.getTime() && at.getTime() <= end)) continue;
+		const key = `${e.title_id}-${e.season}-${e.episode}`;
+		if (seen.has(key)) continue;
+		seen.add(key);
+		out.push({ key, name: e.name, ep: e.season != null && e.episode != null ? `S${e.season} E${e.episode}` : '', at, when: whenWords(at, now), poster: e.poster, href: `/library/${e.title_id}` });
+	}
+	return out.sort((a, b) => a.at.getTime() - b.at.getTime());
+}
+
+/** wayLine is the caption under a poster in On the way: "63% · 4 min", "Looking for a copy", "Stuck · retrying". */
+export function wayLine(c: BoardCard): string {
+	if (c.trouble) return c.lane === 'looking' ? 'Stuck · looking again' : 'Needs a look';
+	if (c.lane === 'looking') return 'Looking for a copy';
+	if (c.lane === 'inspection') return 'Checking and filing it';
+	const eta = c.eta && c.eta > 0 ? etaWords(c.eta) : '';
+	return [c.line, eta].filter(Boolean).join(' · ') || 'Coming in';
+}
+
+/** ringPercent is how full a poster's ring is (0 to 100), or null when there is no number to show. */
+export function ringPercent(c: BoardCard): number | null {
+	if (c.lane === 'inspection') return 100;
+	if (c.lane !== 'coming' || c.progress == null) return null;
+	return Math.max(0, Math.min(100, Math.round(c.progress * 100)));
+}

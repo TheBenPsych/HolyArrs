@@ -342,7 +342,7 @@
 <svelte:head><title>{t('home.home')} · HolyArrs</title></svelte:head>
 
 <div class="home">
-	<div class="top">
+	<div class="top harbor-hide"><!-- Harbor: Today has its own greeting -->
 		<p class="greet" data-testid="home-greeting">{greeting}</p>
 		<!-- The page's own heading, for screen readers and for the small title bar phones show once the greeting has scrolled away. -->
 		<PageHeader title={t('home.home')} />
