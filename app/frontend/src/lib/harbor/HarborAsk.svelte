@@ -15,9 +15,7 @@
 	import type { Ask } from '#lib/core/types.ts';
 	import { detailPath } from '#lib/metadata/index.ts';
 	import { artistHref } from '#lib/music/index.ts';
-	import { ask, bestMatch, EXAMPLES } from './ask-bar.ts';
-	import { askLane } from './board.ts';
-	import { ago, clock } from './today.ts';
+	import { ask, askStory as story, bestMatch, EXAMPLES } from './ask-bar.ts';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -52,19 +50,6 @@
 		asks = r.asks ?? [];
 		asksAt = Date.now();
 		return asks;
-	}
-
-	function story(a: Ask): string {
-		if (a.state === 'turned_down') return `${a.decided_by?.name ?? 'Someone'} said no${a.note ? `: “${a.note}”` : ''}.`;
-		const placed = askLane(a, undefined);
-		if (!placed) return '';
-		const who = a.asked_by?.name ? `${a.asked_by.name} asked ${ago(a.asked_at, new Date())}.` : '';
-		if (placed.lane === 'asked') return `It is waiting for a yes. ${who}`;
-		if (placed.lane === 'landed') return `It landed ${ago(a.available_at, new Date())} and is on Glowfin.`;
-		if (placed.lane === 'coming') return `It is downloading now. ${who}`;
-		if (placed.lane === 'inspection') return 'It is downloaded and being checked and filed.';
-		const next = a.step?.next_search ? ` Next try ${clock(new Date(a.step.next_search))}.` : '';
-		return `${placed.trouble ?? `Harbor is still looking: ${placed.line.replace(/\.$/, '')}.`}${next}`;
 	}
 
 	async function work(c: typeof cmd) {

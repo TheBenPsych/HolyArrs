@@ -12,3 +12,7 @@ export { default as HarborTitleStrip } from './HarborTitleStrip.svelte';
 export { default as HarborTower } from './HarborTower.svelte';
 export { default as HarborManga } from './HarborManga.svelte';
 export { default as HarborMangaRow } from './HarborMangaRow.svelte';
+export { default as HarborExploreTop } from './HarborExploreTop.svelte';
+export { default as HarborExploreRows } from './HarborExploreRows.svelte';
+export { harborSearchKey } from './search.svelte.ts';
+export { harborGet, gotCard } from './get.svelte.ts';

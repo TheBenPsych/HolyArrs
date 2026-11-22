@@ -63,7 +63,7 @@ export { itemDot } from './calendar.ts';
 export { leaveOut } from './popular.ts';
 export { leaving } from './came-from.svelte.ts';
 export { libraryNote } from './search-address.ts';
-export { live } from './live-search.ts';
+export { live, suggestHref, subline, type SuggestAnswer, type SuggestRow } from './live-search.ts';
 export { markTransitions } from './explore-rows.ts';
 export { monthRange } from './calendar.ts';
 export { movieFacts } from './calendar.ts';
