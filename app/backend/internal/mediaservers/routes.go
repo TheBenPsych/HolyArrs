@@ -39,6 +39,7 @@ func (h *Handlers) Routes(m *http.ServeMux) {
 	// Where a Library title opens on the Jellyfin and Emby servers.
 	m.HandleFunc("GET /api/v1/media-servers/watch-links", h.watchLinks)
 	m.HandleFunc("GET /api/v1/my/watched", h.myWatched)
+	m.HandleFunc("GET /api/v1/media-servers/watching", h.watching) // Harbor: who is watching right now
 	m.HandleFunc("GET /api/v1/library/watched-by-anyone", h.watchedByAnyone)
 	m.HandleFunc("GET /api/v1/settings/plex-labels", h.getLabels)
 	m.HandleFunc("PUT /api/v1/settings/plex-labels", h.putLabels)

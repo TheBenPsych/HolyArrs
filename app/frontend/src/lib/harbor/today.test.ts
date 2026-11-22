@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CalendarEntry } from '#lib/core/types.ts';
 import type { BoardCard } from './board.ts';
-import { ago, arrivals, dayLine, lineX, spaceWords, todayFacts, todaySentence } from './today.ts';
+import { ago, arrivals, dayLine, greetWord, lineX, nextDay, ringPercent, spaceWords, todayFacts, todaySentence, wayLine, whenWords } from './today.ts';
 import { ask, bestMatch } from './ask-bar.ts';
 
 const now = new Date('2026-11-20T16:10:00');
@@ -73,5 +73,43 @@ describe('Ask bar', () => {
 		expect(bestMatch(list, 'one piece episode 12')?.name).toBe('One Piece');
 		expect(bestMatch(list, 'dune part three')?.name).toBe('Dune: Part Three');
 		expect(bestMatch(list, 'frieren')).toBeUndefined();
+	});
+});
+
+describe('bold Today', () => {
+	it('greets by the time of day', () => {
+		expect(greetWord(new Date('2026-11-20T08:00:00'))).toBe('Good morning');
+		expect(greetWord(new Date('2026-11-20T13:00:00'))).toBe('Good afternoon');
+		expect(greetWord(new Date('2026-11-20T21:00:00'))).toBe('Good evening');
+	});
+	it('says when in plain words', () => {
+		expect(whenWords(new Date('2026-11-20T21:00:00'), now)).toMatch(/^Tonight 9/);
+		expect(whenWords(new Date('2026-11-20T16:30:00'), now)).toMatch(/^Today 4:30/);
+		expect(whenWords(new Date('2026-11-21T10:00:00'), now)).toMatch(/^Tomorrow 10/);
+	});
+	it('lists the next 24 hours of new episodes, soonest first', () => {
+		const e = (o: Partial<CalendarEntry>): CalendarEntry => ({ title_id: 1, name: 'The Bear', kind: 'episode', date: '2026-11-20T21:00:00', season: 4, episode: 4, timed: true, ...o });
+		const got = nextDay(
+			[
+				e({ title_id: 2, name: 'Frieren', date: '2026-11-21T10:00:00', season: 2, episode: 1 }),
+				e({}),
+				e({ title_id: 3, date: '2026-11-20T12:00:00' }), // already aired
+				e({ title_id: 4, date: '2026-11-21T18:00:00' }), // more than 24 hours away
+				e({ title_id: 5, state: 'in_library' }),
+				e({ title_id: 6, timed: false }),
+				e({ title_id: 7, kind: 'digital' })
+			],
+			now
+		);
+		expect(got.map((g) => `${g.name} ${g.ep}`)).toEqual(['The Bear S4 E4', 'Frieren S2 E1']);
+		expect(got[0].href).toBe('/library/1');
+	});
+	it('captions On the way', () => {
+		expect(wayLine(card({ lane: 'coming', line: '63%', eta: 240 }))).toBe('63% · 4 min');
+		expect(wayLine(card({ lane: 'looking' }))).toBe('Looking for a copy');
+		expect(wayLine(card({ lane: 'looking', trouble: 'x' }))).toBe('Stuck · looking again');
+		expect(ringPercent(card({ lane: 'coming', progress: 0.634 }))).toBe(63);
+		expect(ringPercent(card({ lane: 'looking' }))).toBeNull();
+		expect(ringPercent(card({ lane: 'inspection' }))).toBe(100);
 	});
 });
