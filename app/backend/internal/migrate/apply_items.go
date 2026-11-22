@@ -441,6 +441,7 @@ func (r *run) ask(it Item) (string, string) {
 		}
 	}
 	if existing != 0 {
+		r.harborReapprove(existing, a, titleID) // Harbor: see harbor_reapprove.go
 		expectedAskFP, askIdentityErr := askIdentity(r.ctx, r.m.Store.Read(), existing)
 		expectedUserFP, userIdentityErr := r.expectedUserIdentity(a.By, by)
 		if askIdentityErr != nil || userIdentityErr != nil {
