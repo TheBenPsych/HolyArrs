@@ -30,6 +30,7 @@ type Service struct {
 	Engine string
 
 	fmu     sync.Mutex // guards the followed list on disk
+	askMu   sync.Mutex // one round of Glowfin's asks at a time
 	mu      sync.Mutex
 	running bool
 	last    []Report
@@ -78,6 +79,8 @@ func (s *Service) Run(ctx context.Context) {
 	for {
 		_, _ = s.Tidy()
 		s.dressFollowed(ctx)
+		// Manga asked for in Glowfin (Requests > Manga) and approved by Ben
+		go s.HandleAsks(ctx)
 		// New chapters: ask the sites four times a day, no more.
 		if time.Since(checked) >= 6*time.Hour {
 			checked = time.Now()
