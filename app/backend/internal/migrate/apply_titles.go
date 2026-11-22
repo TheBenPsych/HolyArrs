@@ -629,7 +629,10 @@ func (r *run) applyMusicPolicyTx(tx *sql.Tx, titleID int64, p *MusicPolicyPlan) 
 		var partID int64
 		if err := tx.QueryRow(`SELECT id FROM parts WHERE title_id = ? AND kind = 'album' AND json_extract(source_ids, '$.musicbrainz') = ? AND dropped_at IS NULL`,
 			titleID, album.MBID).Scan(&partID); errors.Is(err, sql.ErrNoRows) {
-			return fmt.Errorf("album %s is not in the adopted artist; its monitoring choice was not applied", album.MBID)
+			// Harbor: the old app knows an album the artist here does not
+			// list. Keep the artist and leave that one choice out, rather
+			// than refusing the whole artist.
+			continue
 		} else if err != nil {
 			return err
 		}
@@ -644,7 +647,10 @@ func (r *run) applyMusicPolicyTx(tx *sql.Tx, titleID int64, p *MusicPolicyPlan) 
 		}
 		var pressingID int64
 		if err := tx.QueryRow("SELECT id FROM pressings WHERE part_id = ? AND mbid = ? AND dropped_at IS NULL", partID, album.PressingMBID).Scan(&pressingID); errors.Is(err, sql.ErrNoRows) {
-			return fmt.Errorf("pressing %s is not in album %s; its watched choice was not applied", album.PressingMBID, album.MBID)
+			// Harbor: the edition the old app watched is not one of the
+			// editions known here. Keep the album with the edition chosen
+			// here, rather than refusing the whole artist.
+			continue
 		} else if err != nil {
 			return err
 		}
