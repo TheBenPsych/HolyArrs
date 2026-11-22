@@ -115,7 +115,7 @@
 	{/if}
 
 	<p class="deeper">
-		Want every detail? The full <a href={to('/requests')}>Requests</a> and <a href={to('/downloads')}>Downloads</a> pages are still here, under More.
+		Want every detail? The full <a href={to('/requests')}>Requests</a> and <a href={to('/downloads')}>Downloads</a> pages are still here, as tabs at the top.
 	</p>
 </div>
 

@@ -3,6 +3,7 @@
 @import '@fontsource-variable/geist/wght.css';
 @import './lib/core/tokens.css';
 @import './lib/harbor/harbor-look.css'; /* Harbor: sea-chart look */
+@import './lib/harbor/harbor-bold.css'; /* Harbor: bold look and top menu */
 
 :root {
 	/* 1 left-to-right, -1 right-to-left: multiplies sideways slides and offsets. */

@@ -1,0 +1,197 @@
+/* Harbor's bold look (design harbor-10, approved 2026-11-22).
+   Loaded after harbor-look.css (see app.css), with the same variable names,
+   so every HolyArrs page picks it up without its own file changing.
+   Deep night blue, slow drifting colour glows behind every page, glass
+   panels, and Harbor's glow gradient (pink, violet, aqua: the Glowfin fin
+   family). Sora for headings, Figtree for everything else, Oswald for big
+   poster-style titles. The top pill menu and the phone tab bar replace the
+   sidebar (lib/harbor/HarborTopMenu.svelte). */
+@import '@fontsource-variable/sora/wght.css';
+@import '@fontsource-variable/oswald/wght.css';
+
+:root {
+	--font-display: 'Sora Variable', 'Sora', 'Figtree Variable', system-ui, sans-serif;
+	--font-poster: 'Oswald Variable', 'Oswald', 'Arial Narrow', sans-serif;
+	--tracking-display: -0.02em;
+	--t-large-title: 800 36px / 1.08 var(--font-display);
+	--t-large-title-track: -0.025em;
+	--t-title1: 700 28px / 1.12 var(--font-display);
+	--t-title1-track: -0.02em;
+	--t-title2: 700 22px / 1.18 var(--font-display);
+	--t-title2-track: -0.018em;
+	--t-title3: 700 19px / 1.25 var(--font-display);
+	--t-title3-track: -0.01em;
+
+	/* Round, soft shapes. */
+	--r-btn: 999px; --r-card: 18px; --r-panel: 22px; --r-modal: 26px;
+
+	/* No sidebar: the floating top menu holds the places. Its two rows (places, then the tabs of the place you are in). */
+	--sidebar-expanded: 0px;
+	--sidebar-collapsed: 0px;
+	--topbar: 76px;
+
+	/* Harbor's own colours, the same in light and dark. */
+	--harbor-pink: #ff5fa2;
+	--harbor-violet: #9d6bff;
+	--harbor-aqua: #3fd8f0;
+	--harbor-mint: #4ff0b0;
+	--harbor-sky: #5cb8ff;
+	--harbor-amber: #ffc25c;
+	--harbor-red: #ff6b6b;
+	--harbor-grad: linear-gradient(120deg, #ff5fa2, #9d6bff 55%, #3fd8f0);
+}
+html:has(.harbor-top.has-tabs) { --topbar: 116px; }
+@media (max-width: 767px) {
+	:root { --topbar: 62px; }
+	html:has(.harbor-top.has-tabs) { --topbar: 102px; }
+}
+
+/* Light: pale lilac paper, deep ink, the same glow colours a little deeper. */
+:root, [data-theme='light'] {
+	--bg: #f3f2f9;
+	--sidebar-bg: rgb(255 255 255 / 72%);
+	--sidebar-solid: #ffffff;
+	--surface-1: #ffffff;
+	--surface-2: #ebe9f5;
+	--surface-3: #dedbee;
+	--line: #dcd9ea;
+	--line-strong: #c4c0d8;
+	--text: #121528;
+	--text-muted: #575c78;
+	--text-faint: #82869e;
+	--accent: #c0307f;
+	--accent-soft: rgb(192 48 127 / 10%);
+	--accent-text: #b0286f;
+	--accent-fill: #c0307f;
+	--accent-fill-hover: #a52a6d;
+	--ok: #13865a; --wait: #a86b00; --fail: #c8372d; --info: #2d6fd0;
+	--ok-text: #10734d; --wait-text: #8a5800; --fail-text: #ad2d24; --info-text: #255fb3;
+	--ok-fill: #13865a;
+	--ok-fill-hover: #10734d;
+	--seg-thumb: #ffffff;
+	--harbor-glass: rgb(255 255 255 / 62%);
+	--harbor-glass-2: rgb(18 21 40 / 7%);
+	--harbor-edge: rgb(18 21 40 / 10%);
+	--harbor-chip-on: #121528;
+	--harbor-chip-on-text: #ffffff;
+	--harbor-glow-a: rgb(255 95 162 / 22%);
+	--harbor-glow-b: rgb(157 107 255 / 20%);
+	--harbor-glow-c: rgb(63 216 240 / 18%);
+	--shadow-card: 0 1px 2px rgb(18 21 40 / 6%), 0 8px 24px rgb(18 21 40 / 8%);
+	--shadow-lift: 0 2px 4px rgb(18 21 40 / 8%), 0 16px 36px rgb(18 21 40 / 16%);
+}
+
+/* Dark: deep night, glass and glow. The system choice when nothing is picked… */
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme='light']) {
+		--bg: #060b12;
+		--sidebar-bg: rgb(16 24 36 / 75%);
+		--sidebar-solid: #0f1824;
+		--surface-1: #0d1520;
+		--surface-2: #131d2b;
+		--surface-3: #1b2738;
+		--line: #1c2838;
+		--line-strong: #2a3a50;
+		--text: #f3f7fb;
+		--text-muted: #a3b2c3;
+		--text-faint: #6f8196;
+		--accent: #ff6fb0;
+		--accent-soft: rgb(255 111 176 / 14%);
+		--accent-text: #ff7fb8;
+		--accent-fill: #e0408a;
+		--accent-fill-hover: #c93379;
+		--ok: #4ff0b0; --wait: #ffc25c; --fail: #ff6b6b; --info: #5cb8ff;
+		--ok-text: #4ff0b0; --wait-text: #ffc25c; --fail-text: #ff7a7a; --info-text: #5cb8ff;
+		--ok-fill: #14966a;
+		--ok-fill-hover: #11805a;
+		--scrim: rgb(2 5 10 / 66%);
+		--seg-thumb: #2a3a50;
+		--harbor-glass: rgb(255 255 255 / 6%);
+		--harbor-glass-2: rgb(255 255 255 / 10%);
+		--harbor-edge: rgb(255 255 255 / 10%);
+		--harbor-chip-on: #ffffff;
+		--harbor-chip-on-text: #0b1220;
+		--harbor-glow-a: rgb(255 95 162 / 30%);
+		--harbor-glow-b: rgb(157 107 255 / 30%);
+		--harbor-glow-c: rgb(63 216 240 / 24%);
+	}
+}
+/* …or picked by the person, or set on a wrapper. */
+:root[data-theme='dark'], [data-theme='dark'] {
+	--bg: #060b12;
+	--sidebar-bg: rgb(16 24 36 / 75%);
+	--sidebar-solid: #0f1824;
+	--surface-1: #0d1520;
+	--surface-2: #131d2b;
+	--surface-3: #1b2738;
+	--line: #1c2838;
+	--line-strong: #2a3a50;
+	--text: #f3f7fb;
+	--text-muted: #a3b2c3;
+	--text-faint: #6f8196;
+	--accent: #ff6fb0;
+	--accent-soft: rgb(255 111 176 / 14%);
+	--accent-text: #ff7fb8;
+	--accent-fill: #e0408a;
+	--accent-fill-hover: #c93379;
+	--ok: #4ff0b0; --wait: #ffc25c; --fail: #ff6b6b; --info: #5cb8ff;
+	--ok-text: #4ff0b0; --wait-text: #ffc25c; --fail-text: #ff7a7a; --info-text: #5cb8ff;
+	--ok-fill: #14966a;
+	--ok-fill-hover: #11805a;
+	--scrim: rgb(2 5 10 / 66%);
+	--seg-thumb: #2a3a50;
+	--harbor-glass: rgb(255 255 255 / 6%);
+	--harbor-glass-2: rgb(255 255 255 / 10%);
+	--harbor-edge: rgb(255 255 255 / 10%);
+	--harbor-chip-on: #ffffff;
+	--harbor-chip-on-text: #0b1220;
+	--harbor-glow-a: rgb(255 95 162 / 30%);
+	--harbor-glow-b: rgb(157 107 255 / 30%);
+	--harbor-glow-c: rgb(63 216 240 / 24%);
+}
+
+/* Slow colour glows behind every page. One fixed layer, transform-only drift, so scrolling stays smooth. */
+body::before {
+	content: '';
+	position: fixed; inset: -20vmax; z-index: -1; pointer-events: none;
+	background:
+		radial-gradient(38vmax 30vmax at 18% 12%, var(--harbor-glow-a), transparent 70%),
+		radial-gradient(34vmax 30vmax at 86% 18%, var(--harbor-glow-b), transparent 70%),
+		radial-gradient(40vmax 32vmax at 60% 96%, var(--harbor-glow-c), transparent 70%);
+	animation: harbor-drift 24s ease-in-out infinite alternate;
+}
+@keyframes harbor-drift { to { transform: translate3d(3vmax, 2vmax, 0) scale(1.06); } }
+@media (prefers-reduced-motion: reduce) { body::before { animation: none; } }
+/* The body sits above the glows. */
+body { isolation: isolate; }
+
+/* Headings in Sora. */
+h1, h2, h3 { font-family: var(--font-display); }
+/* Big hero titles read like a poster. */
+[data-hero] h1 { font-family: var(--font-poster); font-weight: 700; letter-spacing: 0.01em; text-transform: uppercase; }
+
+/* Main buttons wear the glow gradient. */
+html .ui-btn.primary { background: var(--harbor-grad); color: #fff; box-shadow: 0 8px 22px rgb(255 95 162 / 30%); }
+html .ui-btn.primary:hover:not(:disabled) { background: var(--harbor-grad); filter: brightness(1.08); }
+
+/* Pages with their own sticky toolbar (Shelves, Downloads, History) sit under the top menu, not behind it. */
+html .ui-shell main :is(.toolbar.topbar, [data-testid='history-search-bar']) { top: var(--topbar); transition: top var(--dur-glide) var(--ease-glide); }
+html.bar-hidden .ui-shell main :is(.toolbar.topbar, [data-testid='history-search-bar']) { top: 0; }
+/* Shelves' toolbar is see-through until it sticks, so the glows show behind it. */
+html .ui-shell main .toolbar.topbar:not(.stuck) { background: transparent; }
+
+/* Phone tab bar: a floating glass bar with the five places. */
+@media (max-width: 767px) {
+	html nav.ui-tabbar.tabbar {
+		left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); padding: 6px;
+		border: 1px solid var(--harbor-edge); border-radius: 26px;
+		background: color-mix(in srgb, var(--sidebar-solid) 90%, transparent);
+		-webkit-backdrop-filter: blur(24px) saturate(150%); backdrop-filter: blur(24px) saturate(150%);
+		box-shadow: 0 16px 40px rgb(0 0 0 / 35%);
+	}
+	html nav.ui-tabbar.tabbar .tab { min-height: 56px; border-radius: 18px; font: 700 11px/1.1 var(--font-ui); color: var(--text-muted); }
+	html nav.ui-tabbar.tabbar .tab.active { color: #fff; background: var(--harbor-grad); box-shadow: 0 6px 18px rgb(255 95 162 / 30%); }
+	html nav.ui-tabbar.tabbar .tab.active .icon { color: #fff; }
+	:root { --tabbar: 68px; }
+	html .ui-shell main { padding-bottom: calc(var(--tabbar) + 40px + env(safe-area-inset-bottom)); }
+}
