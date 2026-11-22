@@ -277,6 +277,7 @@ func cpuNow() int {
 func (h *Handlers) harborRoutes(m *http.ServeMux) {
 	m.HandleFunc("GET /api/v1/harbor/tower/week", h.harborWeek)
 	m.HandleFunc("GET /api/v1/harbor/tower/pulse", h.harborPulse)
+	h.harborShrinkerRoutes(m)
 }
 
 func (h *Handlers) harborWeek(w http.ResponseWriter, r *http.Request) {

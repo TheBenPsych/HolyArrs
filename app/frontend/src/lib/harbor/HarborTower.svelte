@@ -28,6 +28,7 @@
 	import { SETTINGS_GROUPS, dayName, orbOf, weekDots, weekWords, type Week } from './tower-bold.ts';
 	import HarborTowerPulse from './HarborTowerPulse.svelte';
 	import HarborTowerDay from './HarborTowerDay.svelte';
+	import HarborShrinker from './HarborShrinker.svelte';
 
 	const tab = $derived(towerTab(page.url.searchParams.get('tab')));
 	const canSee = $derived(session.can('settings') || session.can('manage_library'));
@@ -317,6 +318,8 @@
 				</div>
 			{/if}
 		</section>
+	{:else if tab === 'shrinker'}
+		<HarborShrinker />
 	{:else if tab === 'jobs'}
 		<header class="top"><h1>Jobs</h1><p class="lede">{input ? `Harbor does ${jobs.length} jobs by itself. Here is today, and every job.` : 'Reading the jobs…'}</p></header>
 		<section class="pane" aria-label="Jobs">

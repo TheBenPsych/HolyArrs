@@ -21,7 +21,8 @@
 # Running it again is safe: it updates Harbor and keeps Harbor's settings.
 #
 # Switches (put them before "bash", for example  ... | HARBOR_MODE=full bash):
-#   HARBOR_MODE=watch   media folder read-only (default, for the practice week)
+#   HARBOR_MODE=watch   media folder read-only (the first install's default;
+#                       running it again keeps whatever mode Harbor has)
 #   HARBOR_MODE=full    media folder writable (for the switch-over, later)
 #   HARBOR_PORT=6262    the port Harbor answers on
 #   HARBOR_MEDIA=/mnt/user/Homelab/Media   the media folder on Tower
@@ -32,7 +33,7 @@ set -u
 NAME=harbor
 IMAGE="${HARBOR_IMAGE:-ghcr.io/thebenpsych/harbor:latest}"
 PORT="${HARBOR_PORT:-6262}"
-MODE="${HARBOR_MODE:-watch}"
+MODE="${HARBOR_MODE:-}"
 DRY="${HARBOR_DRY:-}"
 ICON="https://raw.githubusercontent.com/TheBenPsych/HolyArrs/main/app/frontend/static/brand/apple-touch-icon-180.png"
 
@@ -43,12 +44,16 @@ stop() { printf '\n  [STOP] %s\n\n  Nothing else was changed. Copy everything ab
 
 say ""
 say "=============================================="
-say " Harbor install  (mode: $MODE)"
+say " Harbor install"
 say "=============================================="
 
 command -v docker >/dev/null 2>&1 || stop "Docker is not running on this machine. In Unraid: Settings > Docker > Enable Docker: Yes."
 docker info >/dev/null 2>&1 || stop "Docker is not answering. In Unraid: Settings > Docker > Enable Docker: Yes."
-case "$MODE" in watch|full) ;; *) stop "HARBOR_MODE must be watch or full, not '$MODE'." ;; esac
+# Running it again keeps the mode Harbor already has, unless HARBOR_MODE says otherwise.
+case "$MODE" in ''|watch|full) ;; *) stop "HARBOR_MODE must be watch or full, not '$MODE'." ;; esac
+[ -n "$MODE" ] || MODE="$(docker inspect -f '{{index .Config.Labels "harbor.mode"}}' "$NAME" 2>/dev/null)"
+case "$MODE" in watch|full) ;; *) MODE=watch ;; esac
+ok "Mode: $MODE"
 case "$PORT" in ''|*[!0-9]*) stop "HARBOR_PORT must be a number, not '$PORT'." ;; esac
 
 # ---------------------------------------------------------------- Tower
@@ -224,6 +229,34 @@ else
   note "Manga: could not make $MANGA_DIR, so the manga shelf stays off"
 fi
 
+# ---------------------------------------------------------- shrinker
+# The video shrinker (Tdarr, set up by Glowfin's setup-tdarr.sh). Harbor's
+# Tower > Shrinker tab reads the notes Tower's helper leaves in Tdarr's
+# folder (read-only) and writes its asks into one small folder of its own,
+# harbor/. It also reads the originals folder (read-only) for last night's
+# list. Harbor never talks to Tdarr and never changes a video.
+SHRINK_ARGS=""
+TDARR_C="$(docker inspect -f '{{.Name}}' tdarr >/dev/null 2>&1 && echo tdarr)"
+[ -n "$TDARR_C" ] || TDARR_C="$(find_app 'haveagitgat/tdarr:')"
+[ -n "$TDARR_C" ] || TDARR_C="$(find_app 'haveagitgat/tdarr$')"
+if [ -n "$TDARR_C" ]; then
+  TDARR_SERVER="$(mount_of "$TDARR_C" /app/server)"
+  TDARR_APP="${TDARR_SERVER%/server}"
+  TDARR_BACKUP="$(mount_of "$TDARR_C" /backup)"
+  if [ -n "$TDARR_SERVER" ] && [ "$TDARR_APP" != "$TDARR_SERVER" ] && [ -d "$TDARR_APP" ]; then
+    mkdir -p "$TDARR_APP/harbor" && chown 99:100 "$TDARR_APP/harbor" && chmod 775 "$TDARR_APP/harbor"
+    SHRINK_ARGS="-v $TDARR_APP:/tdarr:ro -v $TDARR_APP/harbor:/tdarr/harbor -e HARBOR_TDARR_DIR=/tdarr"
+    if [ -n "$TDARR_BACKUP" ] && [ -d "$TDARR_BACKUP" ]; then
+      SHRINK_ARGS="$SHRINK_ARGS -v $TDARR_BACKUP:/tdarr-backup:ro -e HARBOR_TDARR_BACKUP=/tdarr-backup"
+    fi
+    ok "Shrinker: Harbor can see Tdarr's notes in $TDARR_APP"
+  else
+    note "Shrinker: found Tdarr ($TDARR_C) but not its folder, so the Shrinker tab stays empty"
+  fi
+else
+  note "Shrinker: Tdarr is not installed, so the Shrinker tab stays empty"
+fi
+
 # --------------------------------------------- is the spot free?
 OLD_IMAGE="$(docker inspect -f '{{.Config.Image}}' "$NAME" 2>/dev/null)"
 if [ -n "$OLD_IMAGE" ]; then
@@ -267,6 +300,7 @@ docker run -d \
   -v "$CONFIG:/config" \
   -v "$MEDIA_MOUNT" \
   $MANGA_ARGS \
+  $SHRINK_ARGS \
   -l "net.unraid.docker.webui=http://[IP]:[PORT:6262]/" \
   -l "net.unraid.docker.icon=$ICON" \
   -l "harbor.mode=$MODE" \

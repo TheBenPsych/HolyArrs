@@ -13,7 +13,8 @@ export const TOWER_TABS = [
 	{ id: 'health', label: 'Health' },
 	{ id: 'jobs', label: 'Jobs' },
 	{ id: 'downloads', label: 'Downloads' },
-	{ id: 'rules', label: 'Rules' }
+	{ id: 'rules', label: 'Rules' },
+	{ id: 'shrinker', label: 'Shrinker' }
 ] as const;
 export type TowerTab = (typeof TOWER_TABS)[number]['id'];
 
