@@ -427,6 +427,8 @@ func (e *Engine) folders(ctx context.Context) ([]Result, error) {
 			r.State, r.Message = Error, "Library folder "+name+" cannot be reached (is the disk or share mounted?)"
 		case !st.IsDir():
 			r.State, r.Message = Error, "Library folder "+name+" is not a folder"
+		case lf.Health == "read_only" && harborWatchOnly():
+			// Harbor watch-only: read-only on purpose, nothing to fix.
 		case lf.Health == "read_only":
 			r.State, r.Message = Error, "HolyArrs cannot write to the Library folder "+name
 		case lf.Health == "no_hardlink" && !lf.CopiesExpected:
