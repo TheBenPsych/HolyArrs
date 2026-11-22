@@ -91,12 +91,14 @@ export function harborPlaces(sections: HarborSection[]): HarborPlace[] {
 		add('tower', { href: '/tower?tab=rules', label: 'Rules' });
 	}
 	if (has.has('explore') && !get('explore')!.tabs.some((t) => t.href === '/search')) add('explore', { href: '/search', label: 'Search' });
+	// Anime and Manga are shelves of their own (bold redesign part 5). Manga is for managers, never Kids.
+	if (has.has('shelves')) add('shelves', { href: '/library?kind=anime', label: 'Anime' });
 	if (manager && has.has('shelves')) {
-		add('shelves', { href: '/library/manga', label: 'Manga' });
+		add('shelves', { href: '/library?kind=manga', label: 'Manga' });
 		add('shelves', { href: '/library/tidy', label: 'Tidy' });
 	}
 	sortTabs(get('tower'), ['/tower', '/tower?tab=jobs', '/downloads', '/downloads/history', '/tower?tab=rules', '/health', '/plugins', '/settings']);
-	sortTabs(get('shelves'), ['/library', '/library?kind=movie', '/library?kind=show', '/library?kind=artist', '/library/manga', '/library/stats', '/library/tidy']);
+	sortTabs(get('shelves'), ['/library', '/library?kind=movie', '/library?kind=show', '/library?kind=anime', '/library?kind=artist', '/library?kind=manga', '/library/stats', '/library/tidy']);
 	return places;
 }
 

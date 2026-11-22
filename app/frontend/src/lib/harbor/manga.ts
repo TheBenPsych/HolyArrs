@@ -13,6 +13,8 @@ export type MangaShelfItem = {
 	official: number;
 	left_out: MangaLeft[];
 	gaps?: string[];
+	/** Chapters or volumes that arrived in the last week (the "+3 new" glow). */
+	new?: number;
 	first?: string;
 	last?: string;
 	error?: string;

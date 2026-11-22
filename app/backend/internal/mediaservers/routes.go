@@ -41,6 +41,8 @@ func (h *Handlers) Routes(m *http.ServeMux) {
 	m.HandleFunc("GET /api/v1/my/watched", h.myWatched)
 	m.HandleFunc("GET /api/v1/media-servers/watching", h.watching) // Harbor: who is watching right now
 	m.HandleFunc("GET /api/v1/library/watched-by-anyone", h.watchedByAnyone)
+	m.HandleFunc("GET /api/v1/harbor/shelves/plays", h.shelfPlays)    // Harbor Shelves: Most watched / Never watched
+	m.HandleFunc("GET /api/v1/harbor/shelves/glowfin", h.glowfinLink) // Harbor Shelves: Open in Glowfin
 	m.HandleFunc("GET /api/v1/settings/plex-labels", h.getLabels)
 	m.HandleFunc("PUT /api/v1/settings/plex-labels", h.putLabels)
 	m.HandleFunc("POST /api/v1/settings/plex-labels/run", h.runLabels)

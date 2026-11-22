@@ -226,3 +226,254 @@ export function tidyItems(i: TidyInput): TidyItem[] {
 
 /** tidyCount is the number shown on the Tidy tab: how many suggestions there are. */
 export const tidyCount = (items: TidyItem[]) => items.length;
+
+// ---- Part 5 of the bold redesign (harbor-10 screen 5, build list row 5) ----
+// The Shelves page: five shelf tiles (Movies, Shows, Anime, Music, Manga), the
+// Tower space bar, filter chips, sort by what the family watches, quality
+// badges and the play button that opens a title in Glowfin.
+
+/** A shelf on the Shelves page. Anime and Manga are shelves of their own. */
+export type ShelfId = 'movie' | 'show' | 'anime' | 'artist' | 'manga';
+
+export const SHELF_IDS: ShelfId[] = ['movie', 'show', 'anime', 'artist', 'manga'];
+
+export const SHELF_NAME: Record<ShelfId, string> = { movie: 'Movies', show: 'Shows', anime: 'Anime', artist: 'Music', manga: 'Manga' };
+
+/** Each shelf's glow colour (a Harbor colour variable). */
+export const SHELF_GLOW: Record<ShelfId, string> = { movie: 'var(--harbor-pink)', show: 'var(--harbor-sky)', anime: 'var(--harbor-violet)', artist: 'var(--harbor-amber)', manga: 'var(--harbor-mint)' };
+
+/** Which shelves a person sees: Music needs the part on and is not for Kids; Manga is for managers and never for Kids. */
+export function shelvesFor(o: { kid: boolean; manage: boolean; music?: boolean; movies?: boolean; shows?: boolean }): ShelfId[] {
+	return SHELF_IDS.filter((k) => {
+		if (k === 'movie') return o.movies !== false;
+		if (k === 'show' || k === 'anime') return o.shows !== false || k === 'anime';
+		if (k === 'artist') return !o.kid && o.music !== false;
+		return !o.kid && o.manage;
+	});
+}
+
+/** shelfListView says the page shows the HolyArrs list (?list=1) instead of the poster wall. Anime and Manga have only the wall. */
+export function shelfListView(p: Pick<URLSearchParams, 'get'>): boolean {
+	const k = p.get('kind');
+	return p.get('list') === '1' && k !== 'anime' && k !== 'manga';
+}
+
+/** readShelf reads ?kind= from the page link; anything else is Movies. */
+export function readShelf(v: string | null, allowed: ShelfId[]): ShelfId {
+	const k = (SHELF_IDS as string[]).includes(v ?? '') ? (v as ShelfId) : 'movie';
+	return allowed.includes(k) ? k : (allowed[0] ?? 'movie');
+}
+
+/** shelfOf says which shelf a Library title sits on. Anime is not also on Movies or Shows. */
+export function shelfOf(t: TitleView): ShelfId | null {
+	if (t.kind === 'artist') return 'artist';
+	if (t.kind !== 'movie' && t.kind !== 'show') return null;
+	return isAnime(t) ? 'anime' : t.kind;
+}
+
+/** Titles on one shelf (not Manga, which has its own list). */
+export const onShelfOf = (ts: TitleView[], k: ShelfId): TitleView[] => ts.filter((t) => shelfOf(t) === k);
+
+/** Count per shelf; Manga comes from the manga list. */
+export function shelfTileCounts(ts: TitleView[], manga: number): Record<ShelfId, number> {
+	const c: Record<ShelfId, number> = { movie: 0, show: 0, anime: 0, artist: 0, manga };
+	for (const t of ts) {
+		const k = shelfOf(t);
+		if (k) c[k]++;
+	}
+	return c;
+}
+
+/** "2,715 titles", "479 artists", "3 series" under each tile. */
+export function tileLine(k: ShelfId, n: number): string {
+	const w = k === 'artist' ? (n === 1 ? 'artist' : 'artists') : k === 'manga' ? 'series' : n === 1 ? 'title' : 'titles';
+	return `${n.toLocaleString('en-US')} ${w}`;
+}
+
+// -- Filters --
+
+export type ShelfFilter = 'all' | 'gaps' | 'better' | 'missing' | 'new';
+
+export const FILTER_NAME: Record<Exclude<ShelfFilter, 'all'>, string> = { gaps: 'Has gaps', better: 'Better copy', missing: 'Missing', new: 'New this week' };
+
+const WEEK = 7 * 24 * 3600 * 1000;
+
+/** isNewThisWeek: added to the Library in the last 7 days. */
+export function isNewThisWeek(t: Pick<TitleView, 'added_at'>, now = Date.now()): boolean {
+	const at = t.added_at ? Date.parse(t.added_at) : NaN;
+	return Number.isFinite(at) && now - at < WEEK && now - at >= -60_000;
+}
+
+/** hasNoFile: a movie asked for with nothing on Glowfin yet. Shows and music use "Has gaps". */
+export function hasNoFile(t: TitleView): boolean {
+	return t.kind === 'movie' && !t.slots.some((s) => s.state === 'in_library' || s.state === 'better_wanted');
+}
+
+export function wantsBetter(t: TitleView): boolean {
+	return t.kind === 'show' ? (t.show?.better_wanted ?? 0) > 0 : t.slots.some((s) => s.state === 'better_wanted');
+}
+
+export function passesFilter(t: TitleView, f: ShelfFilter, now = Date.now()): boolean {
+	switch (f) {
+		case 'gaps':
+			return t.kind !== 'movie' && hasGap(t);
+		case 'better':
+			return wantsBetter(t);
+		case 'missing':
+			return hasNoFile(t);
+		case 'new':
+			return isNewThisWeek(t, now);
+		default:
+			return true;
+	}
+}
+
+export function filterCounts(ts: TitleView[], now = Date.now()): Record<Exclude<ShelfFilter, 'all'>, number> {
+	const c = { gaps: 0, better: 0, missing: 0, new: 0 };
+	for (const t of ts) for (const f of ['gaps', 'better', 'missing', 'new'] as const) if (passesFilter(t, f, now)) c[f]++;
+	return c;
+}
+
+/** Plain-words search on the wall: every word must be in the name (accents and case ignored). */
+export function matchesWords(name: string, q: string): boolean {
+	const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+	const n = fold(name);
+	return fold(q).split(/\s+/).filter(Boolean).every((w) => n.includes(w));
+}
+
+// -- Sorting --
+
+export type ShelfSort = 'added' | 'name' | 'most' | 'never' | 'size';
+
+export const SORT_NAME: Record<ShelfSort, string> = { added: 'Recently added', name: 'A to Z', most: 'Most watched', never: 'Never watched', size: 'Biggest files' };
+
+export interface Plays {
+	plays: number;
+	/** Last time anyone watched it (ISO). */
+	last?: string;
+}
+
+export function readSort(v: string | null): ShelfSort {
+	return v && v in SORT_NAME ? (v as ShelfSort) : 'added';
+}
+
+const sortName = (t: TitleView) => t.name.replace(/^(the|a|an)\s+/i, '');
+
+/**
+ * sortShelf puts a shelf in order. Most watched: most plays first. Never
+ * watched: titles nobody played first (oldest added first, so the ones that
+ * waited longest lead), then the least watched, longest ago.
+ */
+export function sortShelf(ts: TitleView[], by: ShelfSort, plays: Map<number, Plays>): TitleView[] {
+	const p = (t: TitleView) => plays.get(t.id)?.plays ?? 0;
+	const last = (t: TitleView) => {
+		const l = plays.get(t.id)?.last;
+		return l ? Date.parse(l) || 0 : 0;
+	};
+	const added = (t: TitleView) => (t.added_at ? Date.parse(t.added_at) || 0 : 0);
+	const byName = (a: TitleView, b: TitleView) => sortName(a).localeCompare(sortName(b), 'en', { sensitivity: 'base' });
+	const out = [...ts];
+	switch (by) {
+		case 'name':
+			return out.sort(byName);
+		case 'most':
+			return out.sort((a, b) => p(b) - p(a) || last(b) - last(a) || byName(a, b));
+		case 'never':
+			return out.sort((a, b) => p(a) - p(b) || (p(a) === 0 ? added(a) - added(b) : last(a) - last(b)) || byName(a, b));
+		case 'size':
+			return out.sort((a, b) => (b.size_bytes ?? 0) - (a.size_bytes ?? 0) || byName(a, b));
+		default:
+			return out.sort((a, b) => added(b) - added(a) || byName(a, b));
+	}
+}
+
+/** The small line under a poster when sorted by plays: "12 plays · Nov 3" or "Never watched". */
+export function playsLine(p: Plays | undefined): string {
+	if (!p || p.plays <= 0) return 'Never watched';
+	const when = p.last ? new Date(p.last).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: new Date(p.last).getFullYear() === new Date().getFullYear() ? undefined : 'numeric' }) : '';
+	return `${p.plays.toLocaleString('en-US')} ${p.plays === 1 ? 'play' : 'plays'}${when ? ` · ${when}` : ''}`;
+}
+
+// -- Quality badge --
+
+export interface QualityBadge {
+	text: string;
+	/** Below Ben's 1080p goal: shown amber. */
+	low: boolean;
+}
+
+/** qualityBadge is the "1080p" or "720p" tag on a poster; null when Harbor does not know the picture size. */
+export function qualityBadge(t: TitleView): QualityBadge | null {
+	const h = bestHeight(t);
+	if (!h) return null;
+	if (h >= 2000) return { text: '4K', low: false };
+	if (h >= 1000) return { text: '1080p', low: false };
+	if (h >= 700) return { text: '720p', low: true };
+	if (h >= 560) return { text: 'DVD', low: true };
+	return { text: `${h}p`, low: true };
+}
+
+// -- Tower space bar --
+
+export interface Disk {
+	path: string;
+	free_bytes: number;
+	total_bytes: number;
+}
+
+export interface SpacePart {
+	id: ShelfId;
+	bytes: number;
+	/** Share of the whole disk, 0 to 100. */
+	pct: number;
+}
+
+export interface SpaceBar {
+	total: number;
+	free: number;
+	parts: SpacePart[];
+	/** What the shelves don't explain: other files on the same disks. */
+	other: number;
+}
+
+/**
+ * spaceBar works out what fills Tower. Library folders on the same disk
+ * report the same size and free space, so each disk is counted once.
+ */
+export function spaceBar(disks: Disk[], ts: TitleView[]): SpaceBar | null {
+	const seen = new Set<string>();
+	let total = 0;
+	let free = 0;
+	for (const d of disks) {
+		if (!d.total_bytes) continue;
+		const key = `${d.total_bytes}:${d.free_bytes}`;
+		if (seen.has(key)) continue;
+		seen.add(key);
+		total += d.total_bytes;
+		free += d.free_bytes;
+	}
+	if (!total) return null;
+	const by: Record<ShelfId, number> = { movie: 0, show: 0, anime: 0, artist: 0, manga: 0 };
+	for (const t of ts) {
+		const k = shelfOf(t);
+		if (k) by[k] += t.size_bytes ?? 0;
+	}
+	const used = Math.max(0, total - free);
+	const shelves = SHELF_IDS.reduce((n, k) => n + by[k], 0);
+	const parts = SHELF_IDS.filter((k) => by[k] > 0).map((k) => ({ id: k, bytes: by[k], pct: (by[k] / total) * 100 }));
+	return { total, free, parts, other: Math.max(0, used - shelves) };
+}
+
+/** "8.2 TB free of 32" */
+export function freeLine(s: SpaceBar): string {
+	return `${gb(s.free) || '0 MB'} free of ${gb(s.total)}`;
+}
+
+/** "Movies 10 TB · Shows 6.7 TB · Anime 2.1 TB", biggest three. */
+export function spaceWords(s: SpaceBar): string {
+	return [...s.parts]
+		.sort((a, b) => b.bytes - a.bytes)
+		.slice(0, 3)
+		.map((p) => `${SHELF_NAME[p.id]} ${gb(p.bytes)}`)
+		.join(' · ');
+}
