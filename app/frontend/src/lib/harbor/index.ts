@@ -18,3 +18,6 @@ export { default as HarborExploreTop } from './HarborExploreTop.svelte';
 export { default as HarborExploreRows } from './HarborExploreRows.svelte';
 export { harborSearchKey } from './search.svelte.ts';
 export { harborGet, gotCard } from './get.svelte.ts';
+export { default as HarborTitleTop } from './HarborTitleTop.svelte';
+export { default as HarborTitleStory } from './HarborTitleStory.svelte';
+export { isAnime as isAnimeTitle } from './shelves.ts';

@@ -1,6 +1,7 @@
 <!-- Harbor's one search (design harbor-10 screen 3; build list part 3):
      press the search pill or Ctrl K anywhere and a glass panel opens.
-     Results come in groups, each with its own button: Yours (Open), Not
+     Results come in groups, each with its own button: Yours (Open in Glowfin;
+     the row itself opens the Harbor title page), Not
      yours yet (+ Get, which follows your quality rules and never asks),
      People, Manga (Open in Manga) and Settings (Open setting). A typo such
      as "fireen" still finds Frieren and says "Did you mean Frieren?". The
@@ -21,6 +22,7 @@
 	import { getKey, getting, gotten, harborGet, mayGet } from './get.svelte.ts';
 	import { hitLine, type MangaSearch, type MangaView } from './manga.ts';
 	import { closeSearch, harborSearch } from './search.svelte.ts';
+	import { openInGlowfin } from './glowfin.ts';
 
 	let dialog = $state<HTMLDialogElement>();
 	let input = $state<HTMLInputElement>();
@@ -120,11 +122,17 @@
 	});
 
 	type Act = { label: string; run: () => void; go?: boolean; busy?: boolean };
-	interface Line { key: string; group: string; name: string; sub: string; art?: string; round?: boolean; icon?: string; href?: string; act?: Act; tag?: string }
+	// open: what a click on the row (not its button) does; the button's act when missing.
+	interface Line { key: string; group: string; name: string; sub: string; art?: string; round?: boolean; icon?: string; href?: string; act?: Act; tag?: string; open?: () => void }
 
 	function go(href: string) {
 		closeSearch();
 		void goto(href);
+	}
+	async function glowfin(titleId: number) {
+		const why = await openInGlowfin(titleId);
+		if (why) toasts.push('Could not open it in Glowfin', 'info', { body: why });
+		else closeSearch();
 	}
 	function command(): Line[] {
 		if (!cmd) return [];
@@ -153,6 +161,11 @@
 		const k = r.kind === 'movie' || r.kind === 'show' ? r.kind : null;
 		const got = k && tmdb ? gotten.get(getKey(k, tmdb)) : undefined;
 		const line: Line = { key: `${group}-${r.kind}-${r.title_id ?? r.tmdb ?? r.mbid ?? r.person_id ?? r.name}`, group, name: r.name, sub: subline(r), art: r.art, round: r.kind === 'artist' || r.kind === 'person', href };
+		// Yours: the button opens it in Glowfin (part 6); the row opens its Harbor title page.
+		if (group === 'Yours' && k && r.title_id && session.can('manage_library') && !session.kid) {
+			const id = r.title_id;
+			return { ...line, open: () => go(href), act: { label: 'Open in Glowfin', go: true, run: () => void glowfin(id) } };
+		}
 		if (group === 'Yours' || group === 'People') return { ...line, act: { label: 'Open', go: group === 'Yours', run: () => go(href) } };
 		const tag = got?.titleId ? 'On your shelves' : got?.ask === 'approved' ? 'Getting it' : got?.ask ? 'Asked' : foundTag(r);
 		if (k && tmdb && !tag && mayGet()) return { ...line, act: { label: '+ Get', run: () => void harborGet(k, tmdb, r.name), busy: getting(k, tmdb) } };
@@ -225,7 +238,7 @@
 					<span class="hs-lbl">{g.name}</span>
 					{#each g.lines as l (l.key)}
 						<!-- svelte-ignore a11y_click_events_have_key_events -->
-						<div class="hs-hit" class:on={l.i === active} id="hs-{l.i}" role="option" tabindex="-1" aria-selected={l.i === active} onpointerenter={() => (active = l.i)} onclick={(e) => { if (!(e.target as Element).closest('button, a')) l.act?.run(); }}>
+						<div class="hs-hit" class:on={l.i === active} id="hs-{l.i}" role="option" tabindex="-1" aria-selected={l.i === active} onpointerenter={() => (active = l.i)} onclick={(e) => { if (!(e.target as Element).closest('button, a')) (l.open ?? l.act?.run)?.(); }}>
 							{#if l.icon}
 								<span class="hs-ic" aria-hidden="true"><Icon name={l.icon as 'search'} size={20} /></span>
 							{:else}

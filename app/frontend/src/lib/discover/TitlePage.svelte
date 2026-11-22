@@ -2,13 +2,13 @@
 	import { t, appLocale } from '#lib/core/i18n/i18n.svelte.ts';
 	import '#lib/ui/title-page.css';
 	import PageLoader from '#lib/ui/PageLoader.svelte';
-	import TitleHero, { richMetadata, runtimeWords, type RichMeta } from '#lib/ui/TitleHero.svelte';
+	import { richMetadata, runtimeWords, type RichMeta } from '#lib/ui/TitleHero.svelte';
+	import { HarborTitleTop, HarborTitleStory, isAnimeTitle } from '#lib/harbor/index.ts'; // Harbor
 	import ActionButton from '#lib/ui/ActionButton.svelte';
 	import Shelf from '#lib/ui/Shelf.svelte';
 	import TitleRows from '#lib/ui/TitleRows.svelte';
 	import FollowButton from '#lib/ui/FollowButton.svelte';
 	import type { InfoDetails } from '#lib/ui/title-info.ts';
-	import { tmdbArtName } from '#lib/ui/title-cards.ts';
 	import { loadExtras, scoreName, type OutsideScore } from '#lib/ui/outside-ratings.ts';
 	import { ratingPicks, shownRatings } from '#lib/ui/rating-picks.svelte.ts';
 	import { loadWikiFacts, type WikiAward } from '#lib/ui/wiki-facts.ts';
@@ -29,7 +29,7 @@
 	import TitleOwnedSheets from './TitleOwnedSheets.svelte';
 	import { SearchOutcomeLine, keptSeasons, completeSeasons, seasonsToAsk, QuickAsk, AddMovieDialog, AddShowDialog, AskShowDialog, AskMovieDialog, fourKReady } from '#lib/requests/index.ts';
 	import { seasonWords, SeasonFolds } from '#lib/shows/index.ts';
-	import { detailPath, fourKOffer, isDetailKind, loadDetails, remembered, type TitleDetails } from '#lib/metadata/index.ts';
+	import { fourKOffer, isDetailKind, loadDetails, remembered, type TitleDetails } from '#lib/metadata/index.ts';
 	import type { GateDefaults } from '#lib/mediafiles/index.ts';
 	import type { ShowSettings } from '#lib/shows/index.ts';
 	import { savedDefaults } from '#lib/mediafiles/index.ts';
@@ -384,9 +384,13 @@
 			d.kind === 'movie' ? { name: 'Letterboxd', href: `https://letterboxd.com/tmdb/${d.tmdb}/` } : null
 		].filter((x): x is { name: string; href: string } => !!x);
 	});
-	const crumbs = $derived(details ? [{ href: to('/explore'), label: t('discover.titlePage.explore') }, { href: to(detailPath(details.kind, details.tmdb)), label: details.year ? `${details.name} (${details.year})` : details.name }] : []);
 	// The breadcrumb's parent for a page opened fresh is the title's section (Movies or TV shows). From the Library grid it goes back to the grid with its filters (backHref).
-	const sectionCrumb = $derived(details?.kind === 'show' ? { label: t('discover.titlePage.tvShows'), href: backHref ?? to('/library?kind=show') } : { label: t('discover.titlePage.movies'), href: backHref ?? to('/library?kind=movie') });
+	// Harbor: Shelves › Anime (or Movies, Shows) for a title on the shelves, Explore for one that is not.
+	const harborCrumbs = $derived(
+		owned
+			? [{ href: to('/library'), label: 'Shelves' }, { href: backHref ?? to(`/library?kind=${isAnimeTitle(owned) ? 'anime' : owned.kind}`), label: isAnimeTitle(owned) ? 'Anime' : owned.kind === 'show' ? 'Shows' : 'Movies' }]
+			: [{ href: to('/explore'), label: 'Explore' }]
+	);
 </script>
 
 <svelte:head><title>{details?.name ? `${details.name} · HolyArrs` : `${kindWord} · HolyArrs`}</title></svelte:head>
@@ -402,28 +406,9 @@
 {#if details}
 	{@const d = details}
 	<article class="tp" data-testid="title-detail">
-		<TitleHero
-			title={d.name}
-			kind={d.kind}
-			tmdb={d.tmdb}
-			poster={d.poster}
-			backdrop={d.backdrop}
-			backdrops={rich?.backdrops}
-			logo={rich?.logo}
-			crumbIcon={d.kind === 'show' ? 'tv' : 'compass'}
-			breadcrumb={isDetailKind(kind) ? [sectionCrumb, ...crumbs.slice(1)] : []}
-			meta={heroFacts(d)}
-			showFacts={false}
-			ratings={false}
-			tagline={info?.tagline}
-			certification={rich?.certification ?? certOf(d.rating)}
-			score={rich?.score ?? scoreOf(d.rating)}
-			status={hiddenShown(d) ? 'turned_down' : d.neverAdd || d.ask ? heroPill(d).kind : undefined}
-			statusLabel={hiddenShown(d) ? hiddenPill(d.hides ?? [], people) : d.neverAdd || d.ask ? heroPill(d).label : undefined}
-			vtName={tmdbArtName(d.kind, d.tmdb)}
-		>
-			{#snippet byline()}{#if owned}<AskedByLine {askers} />{#if ownState.kind !== 'have' && ownState.kind !== 'downloading'}<SearchOutcomeLine titleId={owned.id} />{/if}{/if}{/snippet}
-			{#snippet actions()}
+		<!-- Harbor: the bold title page top (lib/harbor HarborTitleTop) replaces the HolyArrs hero; its buttons sit in the small row. -->
+		{#snippet heroByline()}{#if owned}<AskedByLine {askers} />{#if ownState.kind !== 'have' && ownState.kind !== 'downloading'}<SearchOutcomeLine titleId={owned.id} />{/if}{/if}{/snippet}
+			{#snippet heroActions()}
 				{#if owned}
 					<ActionButton icon={ownState.kind === 'have' ? 'check' : ownState.kind === 'failed' ? 'refresh' : ownState.kind === 'downloading' ? 'download' : 'search'} label={ownState.label} caption={ownState.kind === 'failed' && manage ? t('discover.titlePage.retry') : ownState.kind === 'missing' && manage ? t('discover.titlePage.searchNow') : ownState.label} primary onclick={() => (manage && (ownState.kind === 'failed' || ownState.kind === 'missing') ? own.ownRun('search') : own.setTab('library'))} data-testid="hero-library" />
 					{#if manage && ownState.kind !== 'missing'}<WatchLinks titleId={owned.id} />{/if}
@@ -432,24 +417,14 @@
 					{#if mayAsk && d.kind === 'show' && d.show && !d.neverAdd && askable.length > 0}
 						<ActionButton icon="wish" pill label={t('discover.titlePage.askFor', { name: d.name })} caption={t('discover.titlePage.request')} onclick={() => askShow?.open(d.show as LookupShow, kept, complete)} data-testid="hero-ask-seasons" />
 					{/if}
-				{:else if manage && !d.neverAdd}
-					{#if d.kind === 'movie' && d.movie}
-						<ActionButton icon="plus" label={t('discover.titlePage.addToTheLibrary', { name: d.name })} caption={t('discover.titlePage.addToLibrary')} primary onclick={() => addMovie?.open(d.movie as LookupMovie)} />
-					{:else if d.kind === 'show' && d.show}
-						<ActionButton icon="plus" label={t('discover.titlePage.addToTheLibrary', { name: d.name })} caption={t('discover.titlePage.addToLibrary')} primary onclick={() => addShow?.open(d.show as LookupShow)} />
-					{/if}
-				{:else if mayAsk && !d.neverAdd}
-					{#if d.kind === 'movie'}
-						<ActionButton icon="wish" label={d.ask ? t('discover.titlePage.askForToo', { name: d.name }) : t('discover.titlePage.askFor', { name: d.name })} caption={d.ask?.mine ? t('discover.titlePage.requestedCaption') : d.ask ? t('discover.titlePage.requestToo') : t('discover.titlePage.request')} primary disabled={!!d.ask?.mine} onclick={() => askMovieDialog?.open({ tmdb: d.tmdb, name: d.name, year: d.year, ask: d.ask, ask4k: d.ask4k, has4k: d.has4k })} />
-						{@render ask4kButton(d)}
-					{:else if d.show}
-						<ActionButton icon="wish" label={d.ask ? t('discover.titlePage.askForToo', { name: d.name }) : t('discover.titlePage.askFor', { name: d.name })} caption={d.ask ? t('discover.titlePage.requestToo') : t('discover.titlePage.request')} primary onclick={() => askShow?.open(d.show as LookupShow)} />
-					{/if}
+				{:else if mayAsk && !d.neverAdd && d.kind === 'movie'}
+					{@render ask4kButton(d)}
 				{/if}
 				{#if d.kind === 'show' || d.kind === 'movie'}<FollowButton titleId={owned?.id} tmdb={d.tmdb} kind={d.kind} />{/if}
 				{#if mayHide && !owned}<ActionMenu label={t('discover.titlePage.moreActions')} caption={t('discover.titlePage.more')} icon="more" items={[hideItem]} />{/if}
 			{/snippet}
-		</TitleHero>
+		<HarborTitleTop details={d} {owned} facts={heroFacts(d)} cert={rich?.certification ?? certOf(d.rating)} tagline={info?.tagline} status={hiddenShown(d) ? hiddenPill(d.hides ?? [], people) : d.neverAdd || d.ask ? heroPill(d).label : ''} crumbs={harborCrumbs} actions={heroActions} byline={heroByline} />
+		{#if owned}<HarborTitleStory title={owned} name={d.name} />{/if}
 
 		{#snippet ask4kButton(td: TitleDetails)}
 			{@const offer = fourKMovies ? fourKOffer({ ...td, titleId: td.titleId ?? owned?.id }) : null}
