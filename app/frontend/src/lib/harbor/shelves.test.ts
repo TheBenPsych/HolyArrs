@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SeasonSummary, TitleView } from '#lib/core/types.ts';
-import { hasGap, isAnime, seasonBlock, seasonBlocks, shelfCounts, tidyItems, titleStory } from './shelves.ts';
+import { hasGap, lowQuality, isAnime, seasonBlock, seasonBlocks, shelfCounts, tidyItems, titleStory } from './shelves.ts';
 
 const base = (o: Partial<TitleView>): TitleView => ({ id: 1, kind: 'movie', name: 'X', ids: null, keep_up_to_date: true, why_added: '', release_gate: '', gate_delay_days: 0, stage: 'released', gate_open: true, gate_reason: '', artwork: ['p.jpg'], versions: [], slots: [], ...o }) as TitleView;
 const season = (o: Partial<SeasonSummary>): SeasonSummary => ({ number: 1, name: '', keep_up_to_date: true, episodes: 10, aired: 10, in_library: 10, missing: 0, not_out_yet: 0, better_wanted: 0, ...o });
@@ -40,5 +40,16 @@ describe('shelves', () => {
 	it('only suggests what is there', () => {
 		const items = tidyItems({ titles: [base({ artwork: [] }), base({ slots: [{ id: 1, version: '', version_id: 1, state: 'better_wanted', state_label: '' }] })], missingSubs: 0, binned: 3 });
 		expect(items.map((i) => i.key)).toEqual(['better-movies', 'posters', 'bin']);
+	});
+	it('lists DVD-quality movies, best-loved first', () => {
+		const f = (resolution: number) => [{ id: 1, version: '', version_id: 1, state: 'have', state_label: '', file: { Quality: { resolution } } }] as never;
+		const list = lowQuality([
+			base({ id: 1, name: 'Sharp', slots: f(1080), score: 9, votes: 9000 }),
+			base({ id: 2, name: 'Old VHS', slots: f(480), score: 6, votes: 50 }),
+			base({ id: 3, name: 'Loved DVD', slots: f(576), score: 8.5, votes: 20000 }),
+			base({ id: 4, name: 'No file', slots: [] }),
+			base({ id: 5, name: 'Show', kind: 'show', slots: f(480) })
+		]);
+		expect(list.map((t) => t.name)).toEqual(['Loved DVD', 'Old VHS']);
 	});
 });
