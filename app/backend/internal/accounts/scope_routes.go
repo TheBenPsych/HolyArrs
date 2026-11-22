@@ -41,6 +41,7 @@ var RouteScopes = map[string]string{
 	"GET /api/v1/harbor/shelves/glowfin":                         webserver.ScopeAdmin,
 	"GET /api/v1/harbor/finish":                                  webserver.ScopeRead,
 	"GET /api/v1/harbor/names":                                   webserver.ScopeRead,
+	"GET /api/v1/harbor/title-files":                             webserver.ScopeRead,
 	"GET /api/v1/settings/watch-history":                         webserver.ScopeAdmin,
 	"GET /api/v1/settings/plex-labels":                           webserver.ScopeAdmin,
 	"GET /api/v1/data-packs/{id}":                                webserver.ScopeAdmin,

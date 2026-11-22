@@ -53,6 +53,7 @@ var RoutePerms = map[string]webserver.Perm{
 	"GET /api/v1/harbor/shelves/glowfin":                webserver.PermManageLibrary,
 	"GET /api/v1/harbor/finish":                         webserver.NeedSignedIn,
 	"GET /api/v1/harbor/names":                          webserver.NeedSignedIn,
+	"GET /api/v1/harbor/title-files":                    webserver.NeedSignedIn,
 	"GET /api/v1/my/watched":                            webserver.NeedSignedIn,
 	"GET /api/v1/library/watched-by-anyone":             webserver.NeedUsers,
 	"GET /api/v1/settings/watch-history":                webserver.NeedOwner,
