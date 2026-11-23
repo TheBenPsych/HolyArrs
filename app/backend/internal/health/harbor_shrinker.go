@@ -64,23 +64,49 @@ func shrinkPaths() shrinkDirs {
 type ShrinkSettings struct {
 	NightStart    int      `json:"night_start"`
 	NightEnd      int      `json:"night_end"`
-	EpisodeGB     float64  `json:"episode_gb"`
-	MovieGB       float64  `json:"movie_gb"`
-	KeepPercent   int      `json:"keep_percent"`
-	MinKbps1080   int      `json:"min_kbps_1080"`
+	EpisodeMinMB  int      `json:"episode_min_mb"`
+	EpisodeMaxMB  int      `json:"episode_max_mb"`
+	MovieMinMB    int      `json:"movie_min_mb"`
+	MovieMaxMB    int      `json:"movie_max_mb"`
+	Aim           string   `json:"aim"`
+	FloorMBMin    int      `json:"floor_mb_min"`
+	HEVCMaxCut    int      `json:"hevc_max_cut"`
+	PictureCheck  bool     `json:"picture_check"`
+	DownloadSizes string   `json:"download_sizes"`
 	BackupDays    int      `json:"backup_days"`
 	MinFreeGB     int      `json:"min_free_gb"`
 	TrimLanguages bool     `json:"trim_languages"`
 	FoldersOff    []string `json:"folders_off"`
 }
 
+// withDefaults fills in the size goals (Ben 2026-11-22) when Tower hasn't sent them yet.
+func (s ShrinkSettings) withDefaults() ShrinkSettings {
+	if s.EpisodeMaxMB == 0 {
+		s.EpisodeMinMB, s.EpisodeMaxMB = 400, 800
+	}
+	if s.MovieMaxMB == 0 {
+		s.MovieMinMB, s.MovieMaxMB = 800, 1500
+	}
+	if s.Aim == "" {
+		s.Aim = "top"
+	}
+	if s.FloorMBMin == 0 {
+		s.FloorMBMin = 12
+	}
+	if s.DownloadSizes == "" {
+		s.DownloadSizes = "good"
+	}
+	return s
+}
+
 type shrinkSetup struct {
-	At         string         `json:"at"`
-	GPU        string         `json:"gpu"`
-	Encoder    string         `json:"encoder"`
-	Folders    []string       `json:"folders"`
-	FoldersOff []string       `json:"folders_off"`
-	Settings   ShrinkSettings `json:"settings"`
+	PictureWorks *bool          `json:"picture_check_works"`
+	At           string         `json:"at"`
+	GPU          string         `json:"gpu"`
+	Encoder      string         `json:"encoder"`
+	Folders      []string       `json:"folders"`
+	FoldersOff   []string       `json:"folders_off"`
+	Settings     ShrinkSettings `json:"settings"`
 }
 
 type shrinkStatus struct {
@@ -107,6 +133,8 @@ type ShrinkFile struct {
 	Name      string  `json:"name"`
 	BeforeGB  float64 `json:"before_gb"`
 	AfterGB   float64 `json:"after_gb"`
+	Picture   int     `json:"picture,omitempty"`
+	Movie     bool    `json:"movie"`
 	CanPut    bool    `json:"can_put_back"`
 	PutAsked  bool    `json:"put_back_asked"`
 	nightDate string
@@ -163,6 +191,17 @@ type shrinkView struct {
 	Notes      []string        `json:"notes"`
 	AskedFixes []string        `json:"asked_fixes"`
 	Week       map[string]any  `json:"week"`
+	Goal       ShrinkGoal      `json:"goal"`
+}
+
+// ShrinkGoal is how close the library is to the size goals (Ben 2026-11-22).
+type ShrinkGoal struct {
+	Shrunk       int          `json:"shrunk"`       // shrunk so far
+	AlreadyFine  int          `json:"already_fine"` // left alone: in the goal or smaller, or skipped
+	ToDo         int          `json:"to_do"`        // waiting in the queue
+	Above        int          `json:"above"`        // shrunk, but above the goal on purpose (safety checks)
+	AboveFiles   []ShrinkFile `json:"above_files"`  // the latest of those
+	PictureWorks *bool        `json:"picture_check_works"`
 }
 
 func readJSONFile(path string, v any) bool {
@@ -174,7 +213,7 @@ func readJSONFile(path string, v any) bool {
 }
 
 // The log line: "2026-11-22 02:53  1.96 GB -> 1.10 GB  (saved 0.86 GB)  /media/Anime Shows/…"
-var shrinkLine = regexp.MustCompile(`^(\d{4}-\d\d-\d\d) (\d\d):(\d\d)\s+([\d.]+) GB -> ([\d.]+) GB\s+\(saved [^)]*\)\s+(/media/.+)$`)
+var shrinkLine = regexp.MustCompile(`^(\d{4}-\d\d-\d\d) (\d\d):(\d\d)\s+([\d.]+) GB -> ([\d.]+) GB\s+\(saved [^)]*?(?:, picture (\d+))?\)\s+(/media/.+)$`)
 
 // nightOf says which night a log time belongs to: the morning it ends on.
 // Files after noon belong to the next morning.
@@ -220,7 +259,9 @@ func parseShrinkLog(path string) []ShrinkFile {
 		h, _ := strconv.Atoi(m[2])
 		b, _ := strconv.ParseFloat(m[4], 64)
 		a, _ := strconv.ParseFloat(m[5], 64)
-		out = append(out, ShrinkFile{At: m[1] + " " + m[2] + ":" + m[3], Path: m[6], Name: niceName(m[6]), BeforeGB: b, AfterGB: a, nightDate: nightOf(m[1], h)})
+		pic, _ := strconv.Atoi(m[6])
+		movie := strings.Contains(strings.ToLower(filepath.Dir(m[7])), "movie")
+		out = append(out, ShrinkFile{At: m[1] + " " + m[2] + ":" + m[3], Path: m[7], Name: niceName(m[7]), BeforeGB: b, AfterGB: a, Picture: pic, Movie: movie, nightDate: nightOf(m[1], h)})
 	}
 	return out
 }
@@ -334,8 +375,10 @@ func buildShrink(d shrinkDirs, now time.Time) shrinkView {
 		return v
 	}
 	v.Connected = true
-	st := setup.Settings
+	st := setup.Settings.withDefaults()
 	v.Settings = &st
+	v.Goal.PictureWorks = setup.PictureWorks
+	v.Goal.AboveFiles = []ShrinkFile{}
 	if st.FoldersOff == nil {
 		st.FoldersOff = setup.FoldersOff
 	}
@@ -363,6 +406,9 @@ func buildShrink(d shrinkDirs, now time.Time) shrinkView {
 	if readJSONFile(filepath.Join(d.app, "benflix-counts.json"), &counts) {
 		v.Counts = counts.Files
 		v.Waiting = counts.Files["Queued"]
+		v.Goal.Shrunk = counts.Files["Transcode success"]
+		v.Goal.AlreadyFine = counts.Files["Not required"]
+		v.Goal.ToDo = counts.Files["Queued"] + counts.Files["Hold"]
 	}
 	v.Notes = lastLines(filepath.Join(d.app, "benflix-watch.log"), 8)
 
@@ -392,7 +438,21 @@ func buildShrink(d shrinkDirs, now time.Time) shrinkView {
 		v.Nights = append(v.Nights, ShrinkNight{Date: now.AddDate(0, 0, -i).Format("2006-01-02")})
 	}
 	small := 0
+	under := func(f ShrinkFile) bool {
+		if f.Movie {
+			return f.AfterGB*1000 < float64(st.MovieMinMB)*0.9
+		}
+		return f.AfterGB*1000 < float64(st.EpisodeMinMB)*0.9
+	}
 	for _, f := range files {
+		top := st.EpisodeMaxMB
+		if f.Movie {
+			top = st.MovieMaxMB
+		}
+		if f.AfterGB*1000 > float64(top)*1.05 {
+			v.Goal.Above++
+			v.Goal.AboveFiles = append(v.Goal.AboveFiles, f)
+		}
 		for i := range v.Nights {
 			if v.Nights[i].Date == f.nightDate {
 				v.Nights[i].Files++
@@ -406,7 +466,7 @@ func buildShrink(d shrinkDirs, now time.Time) shrinkView {
 			}
 			f.PutAsked = putAsked[f.Path]
 			v.Files = append(v.Files, f)
-			if f.AfterGB < 0.5 {
+			if under(f) {
 				small++
 			}
 		}
@@ -416,6 +476,10 @@ func buildShrink(d shrinkDirs, now time.Time) shrinkView {
 		v.SavedWeek += v.Nights[i].SavedGB
 	}
 	v.SavedWeek = round1(v.SavedWeek)
+	slices.Reverse(v.Goal.AboveFiles)
+	if len(v.Goal.AboveFiles) > 5 {
+		v.Goal.AboveFiles = v.Goal.AboveFiles[:5]
+	}
 	slices.Reverse(v.Files) // newest first
 	last := v.Nights[len(v.Nights)-1]
 	v.SavedLast = last.SavedGB
@@ -500,7 +564,10 @@ func buildShrink(d shrinkDirs, now time.Time) shrinkView {
 		v.Things = append(v.Things, ShrinkThing{Key: "failed", Tone: toneWait, Title: shrinkCount(n, "file", "files") + " could not be shrunk", Line: "Their originals were left as they were. Trying again sometimes works.", Fix: "failed", FixLabel: fixLabel["failed"]})
 	}
 	if small > 0 {
-		v.Things = append(v.Things, ShrinkThing{Key: "small", Tone: toneWait, Title: shrinkCount(small, "file", "files") + " came out under 500 MB last night", Line: "Look at the list below. Put back any that look worse."})
+		v.Things = append(v.Things, ShrinkThing{Key: "small", Tone: toneWait, Title: shrinkCount(small, "file", "files") + " came out under the size goal last night", Line: "Look at the list below. Put back any that look worse."})
+	}
+	if st.PictureCheck && v.Goal.PictureWorks != nil && !*v.Goal.PictureWorks {
+		v.Things = append(v.Things, ShrinkThing{Key: "picture", Tone: toneIdle, Title: "The picture check can't run on Tower", Line: "Tdarr's video tools don't include it, so only the size checks run. Nothing to do."})
 	}
 	if v.Pending {
 		v.Things = append(v.Things, ShrinkThing{Key: "pending", Tone: toneIdle, Title: "New settings are on their way", Line: "Tower puts them in within a few minutes."})
@@ -556,27 +623,36 @@ func readSavedSettings(path string) (ShrinkSettings, bool) {
 	if err != nil {
 		return ShrinkSettings{}, false
 	}
-	s := ShrinkSettings{TrimLanguages: true, FoldersOff: []string{}}
+	s := ShrinkSettings{TrimLanguages: true, PictureCheck: true, HEVCMaxCut: 50, FoldersOff: []string{}}
 	for _, line := range strings.Split(string(b), "\n") {
 		k, val, ok := strings.Cut(strings.TrimSpace(line), "=")
 		if !ok {
 			continue
 		}
 		i, _ := strconv.Atoi(val)
-		f, _ := strconv.ParseFloat(val, 64)
 		switch k {
 		case "NIGHT_START":
 			s.NightStart = i
 		case "NIGHT_END":
 			s.NightEnd = i
-		case "EPISODE_GB":
-			s.EpisodeGB = f
-		case "MOVIE_GB":
-			s.MovieGB = f
-		case "KEEP_PERCENT":
-			s.KeepPercent = i
-		case "MIN_KBPS_1080":
-			s.MinKbps1080 = i
+		case "EPISODE_MIN_MB":
+			s.EpisodeMinMB = i
+		case "EPISODE_MAX_MB":
+			s.EpisodeMaxMB = i
+		case "MOVIE_MIN_MB":
+			s.MovieMinMB = i
+		case "MOVIE_MAX_MB":
+			s.MovieMaxMB = i
+		case "AIM":
+			s.Aim = val
+		case "FLOOR_MB_MIN":
+			s.FloorMBMin = i
+		case "HEVC_MAX_CUT":
+			s.HEVCMaxCut = i
+		case "PICTURE_CHECK":
+			s.PictureCheck = val != "false"
+		case "DOWNLOAD_SIZES":
+			s.DownloadSizes = val
 		case "BACKUP_DAYS":
 			s.BackupDays = i
 		case "MIN_FREE_GB":
@@ -589,7 +665,7 @@ func readSavedSettings(path string) (ShrinkSettings, bool) {
 			}
 		}
 	}
-	return s, true
+	return s.withDefaults(), true
 }
 
 func sameSettings(a, b ShrinkSettings, bOff []string) bool {
@@ -609,14 +685,18 @@ func checkSettings(s ShrinkSettings, folders []string) string {
 		return "The hours must be between midnight and 11 PM."
 	case s.NightStart == s.NightEnd:
 		return "The start and end hours must be different."
-	case s.EpisodeGB < 0.5 || s.EpisodeGB > 20:
-		return "Episodes: pick between 0.5 and 20 GB."
-	case s.MovieGB < 0.5 || s.MovieGB > 50:
-		return "Movies: pick between 0.5 and 50 GB."
-	case s.KeepPercent < 30 || s.KeepPercent > 80:
-		return "How small: pick between 30% and 80%."
-	case s.MinKbps1080 < 1500 || s.MinKbps1080 > 6000:
-		return "The smallest size is out of range."
+	case s.EpisodeMinMB < 100 || s.EpisodeMaxMB > 20000 || s.EpisodeMinMB >= s.EpisodeMaxMB:
+		return "Episodes: the goal must go from at least 100 MB up to a bigger number."
+	case s.MovieMinMB < 100 || s.MovieMaxMB > 50000 || s.MovieMinMB >= s.MovieMaxMB:
+		return "Movies: the goal must go from at least 100 MB up to a bigger number."
+	case s.Aim != "top" && s.Aim != "middle" && s.Aim != "bottom":
+		return "Aim: pick top, middle or bottom."
+	case s.FloorMBMin < 4 || s.FloorMBMin > 40:
+		return "Picture floor: pick between 4 and 40 MB a minute."
+	case s.HEVCMaxCut < 0 || s.HEVCMaxCut > 80:
+		return "HEVC files: pick between 0% and 80%."
+	case s.DownloadSizes != "good" && s.DownloadSizes != "small" && s.DownloadSizes != "same":
+		return "Download sizes: pick one of the choices."
 	case s.BackupDays < 1 || s.BackupDays > 14:
 		return "Keep originals for 1 to 14 days."
 	case s.MinFreeGB < 50 || s.MinFreeGB > 5000:
@@ -634,8 +714,9 @@ func settingsFile(s ShrinkSettings) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# Saved by Harbor's Shrinker page. Tower uses these within a few minutes.\n")
 	fmt.Fprintf(&b, "NIGHT_START=%d\nNIGHT_END=%d\n", s.NightStart, s.NightEnd)
-	fmt.Fprintf(&b, "EPISODE_GB=%s\nMOVIE_GB=%s\n", strconv.FormatFloat(round1(s.EpisodeGB), 'f', -1, 64), strconv.FormatFloat(round1(s.MovieGB), 'f', -1, 64))
-	fmt.Fprintf(&b, "KEEP_PERCENT=%d\nMIN_KBPS_1080=%d\nBACKUP_DAYS=%d\nMIN_FREE_GB=%d\n", s.KeepPercent, s.MinKbps1080, s.BackupDays, s.MinFreeGB)
+	fmt.Fprintf(&b, "EPISODE_MIN_MB=%d\nEPISODE_MAX_MB=%d\nMOVIE_MIN_MB=%d\nMOVIE_MAX_MB=%d\n", s.EpisodeMinMB, s.EpisodeMaxMB, s.MovieMinMB, s.MovieMaxMB)
+	fmt.Fprintf(&b, "AIM=%s\nFLOOR_MB_MIN=%d\nHEVC_MAX_CUT=%d\nPICTURE_CHECK=%t\nDOWNLOAD_SIZES=%s\n", s.Aim, s.FloorMBMin, s.HEVCMaxCut, s.PictureCheck, s.DownloadSizes)
+	fmt.Fprintf(&b, "BACKUP_DAYS=%d\nMIN_FREE_GB=%d\n", s.BackupDays, s.MinFreeGB)
 	fmt.Fprintf(&b, "TRIM_LANGUAGES=%t\nFOLDERS_OFF=%s\n", s.TrimLanguages, strings.Join(s.FoldersOff, "|"))
 	return b.String()
 }

@@ -22,13 +22,14 @@ func shrinkFixture(t *testing.T) (shrinkDirs, time.Time) {
 	}
 	now := time.Date(2026, 11, 22, 9, 30, 0, 0, time.Local)
 	write(filepath.Join(d.app, "benflix-setup.json"), `{"at":"x","gpu":"/dev/dri/renderD129","encoder":"qsv","folders":["Movies","TV Shows"],"folders_off":["Anime Shows"],
-		"settings":{"night_start":1,"night_end":8,"episode_gb":1.5,"movie_gb":4,"keep_percent":50,"min_kbps_1080":2200,"backup_days":3,"min_free_gb":300,"trim_languages":true}}`)
+		"picture_check_works":false,
+		"settings":{"night_start":1,"night_end":8,"episode_min_mb":400,"episode_max_mb":800,"movie_min_mb":800,"movie_max_mb":1500,"aim":"top","floor_mb_min":12,"hevc_max_cut":50,"picture_check":true,"download_sizes":"good","backup_days":3,"min_free_gb":300,"trim_languages":true}}`)
 	write(filepath.Join(d.app, "benflix-status.json"), `{"at":"`+now.Add(-time.Minute).Format(time.RFC3339)+`","running":true,"answering":true,"node_paused":true,"gpu_do_cpu":true,"gpu_workers":1,"paused_for":"","setup_ok":true,"setup_busy":false}`)
-	write(filepath.Join(d.app, "benflix-counts.json"), `{"at":"x","files":{"Queued":120,"Hold":2,"Transcode error":0}}`)
+	write(filepath.Join(d.app, "benflix-counts.json"), `{"at":"x","files":{"Queued":120,"Hold":2,"Transcode error":0,"Transcode success":40,"Not required":300}}`)
 	write(filepath.Join(d.backup, "shrink-log.txt"), strings.Join([]string{
 		"2026-11-21 02:10  2.00 GB -> 1.00 GB  (saved 1.00 GB)  /media/TV Shows/Old/S01E01 - One [WEBDL-1080p].mkv",
 		"2026-11-21 23:50  3.00 GB -> 1.50 GB  (saved 1.50 GB)  /media/Movies/Late (2020)/Late (2020) {imdb-tt1} [Bluray-1080p].mkv",
-		"2026-11-22 02:53  1.96 GB -> 0.40 GB  (saved 1.56 GB)  /media/TV Shows/Show (2023)/Season 01/Show (2023) - S01E08 - End [WEBDL-1080p].mkv",
+		"2026-11-22 02:53  1.96 GB -> 0.30 GB  (saved 1.66 GB, picture 93)  /media/TV Shows/Show (2023)/Season 01/Show (2023) - S01E08 - End [WEBDL-1080p].mkv",
 		"junk line",
 	}, "\n")+"\n")
 	write(filepath.Join(d.backup, "TV Shows/Show (2023)/Season 01/Show (2023) - S01E08 - End [WEBDL-1080p].mkv"), "orig")
@@ -56,7 +57,7 @@ func TestShrinkView(t *testing.T) {
 	}
 	// Last night = the 23:50 file plus the 02:53 one.
 	last := v.Nights[len(v.Nights)-1]
-	if last.Date != "2026-11-22" || last.Files != 2 || last.SavedGB != 3.1 {
+	if last.Date != "2026-11-22" || last.Files != 2 || last.SavedGB != 3.2 {
 		t.Fatalf("last night %+v", last)
 	}
 	if len(v.Files) != 2 || v.Files[0].Name != "Show (2023) - S01E08 - End" || !v.Files[0].CanPut || v.Files[1].CanPut {
@@ -69,11 +70,18 @@ func TestShrinkView(t *testing.T) {
 	for _, th := range v.Things {
 		keys = append(keys, th.Key)
 	}
-	if strings.Join(keys, ",") != "hold,small" {
+	if strings.Join(keys, ",") != "hold,small,picture" {
 		t.Fatalf("things %v", keys)
 	}
 	if v.Tone != toneWait || v.Waiting != 120 {
 		t.Fatalf("tone %s waiting %d", v.Tone, v.Waiting)
+	}
+	if v.Files[0].Picture != 93 || v.Files[1].Picture != 0 || !v.Files[1].Movie {
+		t.Fatalf("picture/movie %+v", v.Files)
+	}
+	// The late movie came out at 1.5 GB (in the goal); the old episode at 1.0 GB is above its 800 MB goal
+	if v.Goal.Shrunk != 40 || v.Goal.AlreadyFine != 300 || v.Goal.ToDo != 122 || v.Goal.Above != 1 || v.Goal.AboveFiles[0].Name != "S01E01 - One" {
+		t.Fatalf("goal %+v", v.Goal)
 	}
 	if len(v.Folders) != 3 {
 		t.Fatalf("folders %v", v.Folders)
@@ -112,11 +120,13 @@ func TestShrinkSettingsRoundTrip(t *testing.T) {
 }
 
 func TestShrinkCheckSettings(t *testing.T) {
-	good := ShrinkSettings{NightStart: 1, NightEnd: 8, EpisodeGB: 1.5, MovieGB: 4, KeepPercent: 50, MinKbps1080: 2200, BackupDays: 3, MinFreeGB: 300}
+	good := ShrinkSettings{NightStart: 1, NightEnd: 8, EpisodeMinMB: 400, EpisodeMaxMB: 800, MovieMinMB: 800, MovieMaxMB: 1500, Aim: "top", FloorMBMin: 12, HEVCMaxCut: 50, DownloadSizes: "good", BackupDays: 3, MinFreeGB: 300}
 	bad := []func(*ShrinkSettings){
 		func(s *ShrinkSettings) { s.NightEnd = 1 },
 		func(s *ShrinkSettings) { s.NightStart = 24 },
-		func(s *ShrinkSettings) { s.KeepPercent = 10 },
+		func(s *ShrinkSettings) { s.EpisodeMinMB = 900 },
+		func(s *ShrinkSettings) { s.Aim = "sideways" },
+		func(s *ShrinkSettings) { s.FloorMBMin = 1 },
 		func(s *ShrinkSettings) { s.FoldersOff = []string{"Nope"} },
 		func(s *ShrinkSettings) { s.FoldersOff = []string{"Movies\nNIGHT_START=1"} },
 	}
