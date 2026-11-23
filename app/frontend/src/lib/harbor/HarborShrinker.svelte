@@ -10,7 +10,7 @@
 	import { session } from '#lib/core/session.svelte.ts';
 	import { toasts } from '#lib/core/toasts.svelte.ts';
 	import { dayName, weekDots, weekWords } from './tower-bold.ts';
-	import { FLOOR_CHOICES, KEEP_CHOICES, barHeights, hourWord, hoursWords, nightName, sameSettings, sizeWord, smaller, toggleFolder, withValue, type ShrinkSettings, type ShrinkView } from './shrinker.ts';
+	import { AIM_CHOICES, DOWNLOAD_CHOICES, FLOOR_CHOICES, HEVC_CHOICES, aimMB, barHeights, goalBar, goalWords, hourWord, hoursWords, nightName, sameSettings, sizeWord, smaller, toggleFolder, withValue, type ShrinkSettings, type ShrinkView } from './shrinker.ts';
 
 	let view = $state<ShrinkView | null>(null);
 	let failed = $state(false);
@@ -20,6 +20,8 @@
 	const canAct = $derived(session.can('settings') && !session.kid);
 	const changed = $derived(!!edit && !!view?.settings && !sameSettings(edit, view.settings));
 	const bars = $derived(view ? barHeights(view.nights) : []);
+	const gbar = $derived(view?.goal ? goalBar(view.goal) : null);
+	const under = (f: { after_gb: number; movie: boolean }) => !!view?.settings && f.after_gb * 1000 < (f.movie ? view.settings.movie_min_mb : view.settings.episode_min_mb) * 0.9;
 	const files = $derived(view ? (showAll ? view.files : view.files.slice(0, 8)) : []);
 	const tdarrHref = $derived(typeof location === 'undefined' ? '#' : `${location.protocol}//${location.hostname}:8265`);
 	const hours = Array.from({ length: 24 }, (_, h) => h);
@@ -155,14 +157,36 @@
 			{/each}
 		</div>
 
+		{#if view.settings && view.goal}
+			<h2>Size goals <span>Episodes {goalWords(view.settings.episode_min_mb, view.settings.episode_max_mb)} · movies {goalWords(view.settings.movie_min_mb, view.settings.movie_max_mb)}</span></h2>
+			{#if gbar && view.goal.shrunk + view.goal.already_fine + view.goal.to_do > 0}
+				<div class="goalbar" role="img" aria-label="{gbar.shrunk}% shrunk, {gbar.fine}% already fine, {gbar.todo}% still to do">
+					<i class="g-shrunk" style:width="{gbar.shrunk}%"></i><i class="g-fine" style:width="{gbar.fine}%"></i><i class="g-todo" style:width="{gbar.todo}%"></i>
+				</div>
+				<p class="gkey">
+					<span><i class="k g-shrunk"></i>{view.goal.shrunk.toLocaleString()} shrunk</span>
+					<span><i class="k g-fine"></i>{view.goal.already_fine.toLocaleString()} already fine or skipped</span>
+					<span><i class="k g-todo"></i>{view.goal.to_do.toLocaleString()} still to do</span>
+				</p>
+			{/if}
+			{#if view.goal.above}
+				<p class="sub">Above the goal on purpose <span>{view.goal.above.toLocaleString()} {view.goal.above === 1 ? 'file' : 'files'}, kept bigger so they still look good</span></p>
+				<ul class="files">
+					{#each view.goal.above_files as f (f.path)}
+						<li class="glass above"><div class="words"><p class="what"><strong>{f.name}</strong></p><p class="why">{sizeWord(f.after_gb)} · goal tops out at {sizeWord((f.movie ? view.settings.movie_max_mb : view.settings.episode_max_mb) / 1000)}</p></div></li>
+					{/each}
+				</ul>
+			{/if}
+		{/if}
+
 		<h2>Last night's files <span>{view.files.length ? `${view.files.length} shrunk · put back any that look worse` : 'none'}</span></h2>
 		{#if view.files.length}
 			<ul class="files">
 				{#each files as f (f.path)}
-					<li class="glass" class:small={f.after_gb < 0.5}>
+					<li class="glass" class:small={under(f)}>
 						<div class="words">
 							<p class="what"><strong>{f.name}</strong></p>
-							<p class="why">{sizeWord(f.before_gb)} → {sizeWord(f.after_gb)} · {smaller(f.before_gb, f.after_gb)} · {f.at.slice(11)}</p>
+							<p class="why">{sizeWord(f.before_gb)} → {sizeWord(f.after_gb)} · {smaller(f.before_gb, f.after_gb)}{f.picture ? ` · picture ${f.picture}/100` : ''} · {f.at.slice(11)}</p>
 						</div>
 						{#if f.put_back_asked}
 							<span class="note">Putting back…</span>
@@ -193,25 +217,40 @@
 						<select bind:value={edit.night_end} disabled={!canAct} aria-label="End">{#each hours as h (h)}<option value={h}>{hourWord(h)}</option>{/each}</select>
 					</span>
 				</label>
+				<div class="set glass">
+					<strong>Episode goal</strong>
+					<span class="ln">Aims for about {aimMB(edit.episode_min_mb, edit.episode_max_mb, edit.aim)} MB</span>
+					<span class="two"><input type="number" min="100" max="20000" step="50" bind:value={edit.episode_min_mb} disabled={!canAct} aria-label="Episode goal from" /><span>to</span><input type="number" min="100" max="20000" step="50" bind:value={edit.episode_max_mb} disabled={!canAct} aria-label="Episode goal to" /><span>MB</span></span>
+				</div>
+				<div class="set glass">
+					<strong>Movie goal</strong>
+					<span class="ln">Aims for about {aimMB(edit.movie_min_mb, edit.movie_max_mb, edit.aim)} MB</span>
+					<span class="two"><input type="number" min="100" max="50000" step="50" bind:value={edit.movie_min_mb} disabled={!canAct} aria-label="Movie goal from" /><span>to</span><input type="number" min="100" max="50000" step="50" bind:value={edit.movie_max_mb} disabled={!canAct} aria-label="Movie goal to" /><span>MB</span></span>
+				</div>
 				<label class="set glass">
-					<strong>Episodes bigger than</strong>
-					<span class="ln">Smaller episodes are left alone</span>
-					<span class="two"><input type="number" min="0.5" max="20" step="0.1" bind:value={edit.episode_gb} disabled={!canAct} /><span>GB</span></span>
+					<strong>Aim</strong>
+					<span class="ln">Where inside the goal</span>
+					<select bind:value={edit.aim} disabled={!canAct}>{#each AIM_CHOICES as c (c.value)}<option value={c.value}>{c.label}</option>{/each}</select>
 				</label>
 				<label class="set glass">
-					<strong>Movies bigger than</strong>
-					<span class="ln">Smaller movies are left alone</span>
-					<span class="two"><input type="number" min="0.5" max="50" step="0.1" bind:value={edit.movie_gb} disabled={!canAct} /><span>GB</span></span>
+					<strong>Picture floor</strong>
+					<span class="ln">Long ones stay bigger so they still look good</span>
+					<select bind:value={edit.floor_mb_min} disabled={!canAct}>{#each withValue(FLOOR_CHOICES, edit.floor_mb_min, (v) => `About ${v} MB a minute`) as c (c.value)}<option value={c.value}>{c.label}</option>{/each}</select>
 				</label>
 				<label class="set glass">
-					<strong>How small</strong>
-					<span class="ln">Of the old size</span>
-					<select bind:value={edit.keep_percent} disabled={!canAct}>{#each withValue(KEEP_CHOICES, edit.keep_percent, (v) => `About ${v}%`) as c (c.value)}<option value={c.value}>{c.label}</option>{/each}</select>
+					<strong>Files already HEVC</strong>
+					<span class="ln">Squeezing twice looks blocky</span>
+					<select bind:value={edit.hevc_max_cut} disabled={!canAct}>{#each withValue(HEVC_CHOICES, edit.hevc_max_cut, (v) => `At most ${v}%`) as c (c.value)}<option value={c.value}>{c.label}</option>{/each}</select>
+				</label>
+				<label class="set glass check">
+					<strong>Picture check</strong>
+					<span class="ln">{view.goal?.picture_check_works === false ? "Tower's video tools can't do it, so it is skipped" : 'Keeps the original if the new one looks worse'}</span>
+					<span class="two"><input type="checkbox" bind:checked={edit.picture_check} disabled={!canAct} /><span>Compare a few clips</span></span>
 				</label>
 				<label class="set glass">
-					<strong>Never smaller than</strong>
-					<span class="ln">For 1080p files</span>
-					<select bind:value={edit.min_kbps_1080} disabled={!canAct}>{#each withValue(FLOOR_CHOICES, edit.min_kbps_1080, (v) => `${v} kbps`) as c (c.value)}<option value={c.value}>{c.label}</option>{/each}</select>
+					<strong>Download sizes</strong>
+					<span class="ln">In Sonarr and Radarr</span>
+					<select bind:value={edit.download_sizes} disabled={!canAct}>{#each DOWNLOAD_CHOICES as c (c.value)}<option value={c.value}>{c.label}</option>{/each}</select>
 				</label>
 				<label class="set glass">
 					<strong>Keep originals for</strong>
@@ -341,6 +380,15 @@
 	.chip:disabled { cursor: default; }
 	.save-row { position: sticky; bottom: 12px; z-index: 2; }
 
+	.goalbar { display: flex; height: 16px; border-radius: 8px; overflow: hidden; background: var(--harbor-glass-2); }
+	.goalbar i { display: block; height: 100%; }
+	.g-shrunk { background: var(--harbor-mint); }
+	.g-fine { background: var(--harbor-sky); }
+	.g-todo { background: var(--harbor-glass-2); border: 1px solid var(--harbor-edge); box-sizing: border-box; }
+	.gkey { display: flex; flex-wrap: wrap; gap: 14px; margin: -6px 0 0; font: 500 13px/1.4 var(--font-ui); color: var(--text-muted); }
+	.gkey .k { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+	.files li.above { border-inline-start: 4px solid var(--harbor-amber); }
+	.set .two input[type='number'] { width: 80px; }
 	.notes { font: 500 13px/1.5 var(--font-ui); color: var(--text-muted); }
 	.notes summary { cursor: pointer; font-weight: 700; color: var(--text); }
 	.notes ul { margin: 8px 0 0; padding-left: 18px; }

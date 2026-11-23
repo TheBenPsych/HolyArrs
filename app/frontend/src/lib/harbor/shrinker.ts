@@ -8,10 +8,15 @@ import type { Week } from './tower-bold.ts';
 export interface ShrinkSettings {
 	night_start: number;
 	night_end: number;
-	episode_gb: number;
-	movie_gb: number;
-	keep_percent: number;
-	min_kbps_1080: number;
+	episode_min_mb: number;
+	episode_max_mb: number;
+	movie_min_mb: number;
+	movie_max_mb: number;
+	aim: 'top' | 'middle' | 'bottom';
+	floor_mb_min: number;
+	hevc_max_cut: number;
+	picture_check: boolean;
+	download_sizes: 'good' | 'small' | 'same';
 	backup_days: number;
 	min_free_gb: number;
 	trim_languages: boolean;
@@ -47,6 +52,9 @@ export interface ShrinkFile {
 	name: string;
 	before_gb: number;
 	after_gb: number;
+	/** The picture check's score (0-100), when it ran. */
+	picture?: number;
+	movie: boolean;
 	can_put_back: boolean;
 	put_back_asked: boolean;
 }
@@ -73,6 +81,17 @@ export interface ShrinkView {
 	notes: string[];
 	asked_fixes: string[];
 	week: Week | null;
+	goal: ShrinkGoal;
+}
+
+/** How close the library is to the size goals. */
+export interface ShrinkGoal {
+	shrunk: number;
+	already_fine: number;
+	to_do: number;
+	above: number;
+	above_files: ShrinkFile[];
+	picture_check_works: boolean | null;
 }
 
 /** 1 -> "1 AM", 13 -> "1 PM", 0 -> "midnight". Matches the server. */
@@ -114,21 +133,53 @@ export function hoursWords(start: number, end: number): string {
 	return `${hourWord(start)} to ${hourWord(end)} (${n} hour${n === 1 ? '' : 's'})`;
 }
 
-/** The "how small" choices: the percent kept, with plain words. */
-export const KEEP_CHOICES = [
-	{ value: 40, label: 'Very small (about 40%)' },
-	{ value: 50, label: 'Half size (about 50%)' },
-	{ value: 60, label: 'A bit smaller (about 60%)' },
-	{ value: 70, label: 'Gentle (about 70%)' }
+/** Where in the goal to aim, as on the size goals page (Ben 2026-11-22). */
+export const AIM_CHOICES = [
+	{ value: 'top', label: 'Near the top (best picture)' },
+	{ value: 'middle', label: 'The middle' },
+	{ value: 'bottom', label: 'Near the bottom (smallest)' }
+] as const;
+
+/** The picture floor: never under this many MB a minute for 1080p. */
+export const FLOOR_CHOICES = [
+	{ value: 12, label: 'Normal (about 12 MB a minute)' },
+	{ value: 16, label: 'Safer (about 16 MB a minute)' }
 ];
 
-/** The smallest a 1080p file may get, as a speed; with the size it means for a 45-minute episode. */
-export const FLOOR_CHOICES = [
-	{ value: 1500, label: 'About 500 MB per 45 minutes' },
-	{ value: 2200, label: 'About 750 MB per 45 minutes' },
-	{ value: 3000, label: 'About 1 GB per 45 minutes' },
-	{ value: 4000, label: 'About 1.3 GB per 45 minutes' }
+/** How much an HEVC file may lose. */
+export const HEVC_CHOICES = [
+	{ value: 50, label: 'At most half' },
+	{ value: 30, label: 'At most 30%' },
+	{ value: 0, label: 'Never shrink them' }
 ];
+
+/** Download sizes in Sonarr and Radarr. */
+export const DOWNLOAD_CHOICES = [
+	{ value: 'good', label: 'Good-quality copies, the shrinker does the rest' },
+	{ value: 'small', label: 'Already near the goal' },
+	{ value: 'same', label: 'Leave as they are' }
+] as const;
+
+/** Where the shrinker aims inside a goal, in MB: top = 7/8 of the way up. Matches Tower's benflixPrepare. */
+export function aimMB(min: number, max: number, aim: ShrinkSettings['aim']): number {
+	const f = aim === 'bottom' ? 0.125 : aim === 'middle' ? 0.5 : 0.875;
+	return Math.round(min + (max - min) * f);
+}
+
+/** "400 – 800 MB" or "0.8 – 1.5 GB". */
+export function goalWords(min: number, max: number): string {
+	if (max >= 1000) return `${+(min / 1000).toFixed(2)} – ${+(max / 1000).toFixed(2)} GB`;
+	return `${min} – ${max} MB`;
+}
+
+/** The library bar: shrunk, already fine, still to do, as % of all (whole numbers that add up to 100). */
+export function goalBar(g: Pick<ShrinkGoal, 'shrunk' | 'already_fine' | 'to_do'>): { shrunk: number; fine: number; todo: number } {
+	const all = g.shrunk + g.already_fine + g.to_do;
+	if (all <= 0) return { shrunk: 0, fine: 0, todo: 0 };
+	const shrunk = Math.round((g.shrunk / all) * 100);
+	const fine = Math.round((g.already_fine / all) * 100);
+	return { shrunk, fine, todo: Math.max(0, 100 - shrunk - fine) };
+}
 
 /** Puts a saved value into a choice list when it isn't one of the choices, so the page never hides it. */
 export function withValue(choices: { value: number; label: string }[], v: number, label: (v: number) => string) {

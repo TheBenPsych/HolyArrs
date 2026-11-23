@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { KEEP_CHOICES, barHeights, hourWord, hoursWords, sameSettings, sizeWord, smaller, toggleFolder, withValue, type ShrinkSettings } from './shrinker.ts';
+import { FLOOR_CHOICES, aimMB, barHeights, goalBar, goalWords, hourWord, hoursWords, sameSettings, sizeWord, smaller, toggleFolder, withValue, type ShrinkSettings } from './shrinker.ts';
 
-const s: ShrinkSettings = { night_start: 1, night_end: 8, episode_gb: 1.5, movie_gb: 4, keep_percent: 50, min_kbps_1080: 2200, backup_days: 3, min_free_gb: 300, trim_languages: true, folders_off: ['b', 'a'] };
+const s: ShrinkSettings = { night_start: 1, night_end: 8, episode_min_mb: 400, episode_max_mb: 800, movie_min_mb: 800, movie_max_mb: 1500, aim: 'top', floor_mb_min: 12, hevc_max_cut: 50, picture_check: true, download_sizes: 'good', backup_days: 3, min_free_gb: 300, trim_languages: true, folders_off: ['b', 'a'] };
 
 describe('shrinker words', () => {
 	it('says hours like a person', () => {
@@ -37,7 +37,24 @@ describe('settings helpers', () => {
 		expect(sameSettings(s, { ...s, night_end: 7 })).toBe(false);
 	});
 	it('keeps an odd saved value in the choices', () => {
-		expect(withValue(KEEP_CHOICES, 45, (v) => `${v}%`).map((c) => c.value)).toEqual([40, 45, 50, 60, 70]);
-		expect(withValue(KEEP_CHOICES, 50, (v) => `${v}%`)).toBe(KEEP_CHOICES);
+		expect(withValue(FLOOR_CHOICES, 14, (v) => `${v}`).map((c) => c.value)).toEqual([12, 14, 16]);
+		expect(withValue(FLOOR_CHOICES, 12, (v) => `${v}`)).toBe(FLOOR_CHOICES);
+	});
+});
+
+describe('size goals', () => {
+	it('aims like Tower does', () => {
+		expect(aimMB(400, 800, 'top')).toBe(750);
+		expect(aimMB(800, 1500, 'top')).toBe(1413);
+		expect(aimMB(400, 800, 'middle')).toBe(600);
+		expect(aimMB(400, 800, 'bottom')).toBe(450);
+	});
+	it('says goals in MB or GB', () => {
+		expect(goalWords(400, 800)).toBe('400 – 800 MB');
+		expect(goalWords(800, 1500)).toBe('0.8 – 1.5 GB');
+	});
+	it('splits the library bar into whole numbers', () => {
+		expect(goalBar({ shrunk: 1, already_fine: 1, to_do: 1 })).toEqual({ shrunk: 33, fine: 33, todo: 34 });
+		expect(goalBar({ shrunk: 0, already_fine: 0, to_do: 0 })).toEqual({ shrunk: 0, fine: 0, todo: 0 });
 	});
 });
