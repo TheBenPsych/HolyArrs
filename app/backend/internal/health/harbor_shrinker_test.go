@@ -30,6 +30,7 @@ func shrinkFixture(t *testing.T) (shrinkDirs, time.Time) {
 		"2026-11-21 02:10  2.00 GB -> 1.00 GB  (saved 1.00 GB)  /media/TV Shows/Old/S01E01 - One [WEBDL-1080p].mkv",
 		"2026-11-21 23:50  3.00 GB -> 1.50 GB  (saved 1.50 GB)  /media/Movies/Late (2020)/Late (2020) {imdb-tt1} [Bluray-1080p].mkv",
 		"2026-11-22 02:53  1.96 GB -> 0.30 GB  (saved 1.66 GB, picture 93)  /media/TV Shows/Show (2023)/Season 01/Show (2023) - S01E08 - End [WEBDL-1080p].mkv",
+		"2026-11-22 03:10  4.00 GB -> 1.41 GB  (saved 2.59 GB, picture 95, movie)  /media/Anime Shows/Poke (1997)/Season 00/Poke (1997) - S00E13 - Darkrai [Bluray-1080p].mkv",
 		"junk line",
 	}, "\n")+"\n")
 	write(filepath.Join(d.backup, "TV Shows/Show (2023)/Season 01/Show (2023) - S01E08 - End [WEBDL-1080p].mkv"), "orig")
@@ -55,16 +56,20 @@ func TestShrinkView(t *testing.T) {
 	if !v.Connected || len(v.Tiles) != 4 {
 		t.Fatalf("not connected: %+v", v)
 	}
-	// Last night = the 23:50 file plus the 02:53 one.
+	// Last night = the 23:50 file plus the 02:53 and 03:10 ones.
 	last := v.Nights[len(v.Nights)-1]
-	if last.Date != "2026-11-22" || last.Files != 2 || last.SavedGB != 3.2 {
+	if last.Date != "2026-11-22" || last.Files != 3 || last.SavedGB != 5.8 {
 		t.Fatalf("last night %+v", last)
 	}
-	if len(v.Files) != 2 || v.Files[0].Name != "Show (2023) - S01E08 - End" || !v.Files[0].CanPut || v.Files[1].CanPut {
+	if len(v.Files) != 3 || v.Files[1].Name != "Show (2023) - S01E08 - End" || !v.Files[1].CanPut || v.Files[2].CanPut {
 		t.Fatalf("files %+v", v.Files)
 	}
-	if v.Files[1].Name != "Late (2020)" {
-		t.Fatalf("name %q", v.Files[1].Name)
+	if v.Files[2].Name != "Late (2020)" {
+		t.Fatalf("name %q", v.Files[2].Name)
+	}
+	// A Season 00 movie Tower marked as a movie: 1.41 GB is inside the movie goal, not above the episode one
+	if !v.Files[0].Movie || v.Files[0].Picture != 95 {
+		t.Fatalf("special movie %+v", v.Files[0])
 	}
 	keys := []string{}
 	for _, th := range v.Things {
@@ -76,7 +81,7 @@ func TestShrinkView(t *testing.T) {
 	if v.Tone != toneWait || v.Waiting != 120 {
 		t.Fatalf("tone %s waiting %d", v.Tone, v.Waiting)
 	}
-	if v.Files[0].Picture != 93 || v.Files[1].Picture != 0 || !v.Files[1].Movie {
+	if v.Files[1].Picture != 93 || v.Files[2].Picture != 0 || !v.Files[2].Movie || v.Files[1].Movie {
 		t.Fatalf("picture/movie %+v", v.Files)
 	}
 	// The late movie came out at 1.5 GB (in the goal); the old episode at 1.0 GB is above its 800 MB goal
@@ -99,6 +104,9 @@ func TestShrinkStaleStatus(t *testing.T) {
 func TestShrinkSettingsRoundTrip(t *testing.T) {
 	d, now := shrinkFixture(t)
 	s := *buildShrink(d, now).Settings
+	if old := (ShrinkSettings{NightStart: 1, NightEnd: 8}).withDefaults(); old.HEVCMaxCut != 50 || !old.PictureCheck {
+		t.Fatalf("old settings should get the size-goal picks: %+v", old)
+	}
 	s.NightStart, s.NightEnd = 23, 6
 	s.FoldersOff = []string{"Anime Shows", "Movies"}
 	if msg := checkSettings(s, []string{"Anime Shows", "Movies", "TV Shows"}); msg != "" {

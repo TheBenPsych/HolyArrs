@@ -82,7 +82,11 @@ type ShrinkSettings struct {
 // withDefaults fills in the size goals (Ben 2026-11-22) when Tower hasn't sent them yet.
 func (s ShrinkSettings) withDefaults() ShrinkSettings {
 	if s.EpisodeMaxMB == 0 {
+		// Settings from before the size goals: also the HEVC and picture check picks
 		s.EpisodeMinMB, s.EpisodeMaxMB = 400, 800
+		if s.HEVCMaxCut == 0 && !s.PictureCheck {
+			s.HEVCMaxCut, s.PictureCheck = 50, true
+		}
 	}
 	if s.MovieMaxMB == 0 {
 		s.MovieMinMB, s.MovieMaxMB = 800, 1500
@@ -213,7 +217,7 @@ func readJSONFile(path string, v any) bool {
 }
 
 // The log line: "2026-11-22 02:53  1.96 GB -> 1.10 GB  (saved 0.86 GB)  /media/Anime Shows/…"
-var shrinkLine = regexp.MustCompile(`^(\d{4}-\d\d-\d\d) (\d\d):(\d\d)\s+([\d.]+) GB -> ([\d.]+) GB\s+\(saved [^)]*?(?:, picture (\d+))?\)\s+(/media/.+)$`)
+var shrinkLine = regexp.MustCompile(`^(\d{4}-\d\d-\d\d) (\d\d):(\d\d)\s+([\d.]+) GB -> ([\d.]+) GB\s+\(saved [^)]*?(?:, picture (\d+))?(, movie)?\)\s+(/media/.+)$`)
 
 // nightOf says which night a log time belongs to: the morning it ends on.
 // Files after noon belong to the next morning.
@@ -260,8 +264,9 @@ func parseShrinkLog(path string) []ShrinkFile {
 		b, _ := strconv.ParseFloat(m[4], 64)
 		a, _ := strconv.ParseFloat(m[5], 64)
 		pic, _ := strconv.Atoi(m[6])
-		movie := strings.Contains(strings.ToLower(filepath.Dir(m[7])), "movie")
-		out = append(out, ShrinkFile{At: m[1] + " " + m[2] + ":" + m[3], Path: m[7], Name: niceName(m[7]), BeforeGB: b, AfterGB: a, Picture: pic, Movie: movie, nightDate: nightOf(m[1], h)})
+		// Tower marks long specials (Season 00 movies) as movies in the log
+		movie := m[7] != "" || strings.Contains(strings.ToLower(filepath.Dir(m[8])), "movie")
+		out = append(out, ShrinkFile{At: m[1] + " " + m[2] + ":" + m[3], Path: m[8], Name: niceName(m[8]), BeforeGB: b, AfterGB: a, Picture: pic, Movie: movie, nightDate: nightOf(m[1], h)})
 	}
 	return out
 }
