@@ -297,6 +297,7 @@ docker run -d \
   -e PUID=99 -e PGID=100 -e UMASK=022 \
   -e TZ="$TZ_NAME" \
   -e HARBOR_WATCH_ONLY="$WATCH_ONLY" \
+  -e HOLYARRS_UPDATE_CHECK=off \
   -v "$CONFIG:/config" \
   -v "$MEDIA_MOUNT" \
   $MANGA_ARGS \

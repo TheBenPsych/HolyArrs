@@ -15,6 +15,7 @@
 	import HarborSearch from './HarborSearch.svelte';
 	import { openSearch, ownField } from './search.svelte.ts';
 	import type { HarborPlace } from './places.ts';
+	import { barTools, barLead } from '#lib/core/search-field.svelte.ts';
 
 	let {
 		places,
@@ -68,6 +69,9 @@
 			{/each}
 		</nav>
 		<div class="tools">
+			<!-- A page's own top-bar buttons (HolyArrs barLead / barTools, e.g. the Plugins page). -->
+			{#if barLead.snippet}<div class="blead" data-testid="top-page-lead">{@render barLead.snippet()}</div>{/if}
+			{#if barTools.snippet}<div class="btools" data-testid="top-page-tools">{@render barTools.snippet()}</div>{/if}
 			{#if keepField}
 				<div class="srch"><HarborAsk><SearchField {searchKey} /></HarborAsk></div>
 				<a class="ib glass phone-search" href={searchHref} aria-label="Search"><Icon name="search" size={20} /></a>
@@ -182,4 +186,5 @@
 		.mk { width: 32px; height: 32px; border-radius: 10px; }
 		.tabs { justify-content: flex-start; margin: 0 calc(-1 * var(--gutter)); padding: 2px var(--gutter); }
 	}
+	.blead, .btools { display: flex; flex: none; align-items: center; gap: 8px; }
 </style>
