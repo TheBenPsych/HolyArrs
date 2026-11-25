@@ -80,6 +80,14 @@ in `/tdarr/harbor` (settings, Put back, Fix it, Skip tonight); Tower's helper
 (`tdarr-watch.sh harbor`, every 2 minutes) does the work. Harbor never talks
 to Tdarr and never changes a video.
 
+## FlareSolverr
+
+When Tower runs FlareSolverr (for Prowlarr), the install finds it and passes
+its address as `HARBOR_FLARESOLVERR`. Every Source with no FlareSolverr
+address of its own uses it, and only when a site shows its bot check
+(`app/backend/internal/sources/harbor_flaresolverr.go`, hooked into the
+Source config in `service.go`).
+
 ## Drop folder
 
 The install makes `Media/Drop` on Tower and gives it to Harbor as
