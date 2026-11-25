@@ -2459,5 +2459,9 @@
 	"server.library.new-cover-art": "புதிய அட்டைப் படம்",
 	"server.plugins.send-event-library-add": "அனுப்பு {\"event\": \"library.add\"}",
 	"server.plugins.send-on-true-or-on-false": "அனுப்பு {\"on\": true} அல்லது {\"on\": false}",
-	"server.migrate.the-same-as-a-source-that": "{name} போன்றதே, ஏற்கனவே உள்ள ஒரு மூலம்"
+	"server.migrate.the-same-as-a-source-that": "{name} போன்றதே, ஏற்கனவே உள்ள ஒரு மூலம்",
+	"server.health.that-file-isn-t-in-the": "That file isn't in the shrink log.",
+	"server.health.unknown-action": "unknown action",
+	"server.health.unknown-fix": "unknown fix",
+	"server.migrate.approve-it-again-here-to-add": "approve it again here to add it"
 }

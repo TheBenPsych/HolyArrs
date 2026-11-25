@@ -2459,5 +2459,9 @@
 	"server.library.new-cover-art": "नया कवर आर्ट",
 	"server.plugins.send-event-library-add": "भेजें {\"event\": \"library.add\"}",
 	"server.plugins.send-on-true-or-on-false": "भेजें {\"on\": true} या {\"on\": false}",
-	"server.migrate.the-same-as-a-source-that": "{name} जैसा ही, एक सोर्स जो यहां है"
+	"server.migrate.the-same-as-a-source-that": "{name} जैसा ही, एक सोर्स जो यहां है",
+	"server.health.that-file-isn-t-in-the": "That file isn't in the shrink log.",
+	"server.health.unknown-action": "unknown action",
+	"server.health.unknown-fix": "unknown fix",
+	"server.migrate.approve-it-again-here-to-add": "approve it again here to add it"
 }

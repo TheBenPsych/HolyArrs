@@ -2459,5 +2459,9 @@
 	"server.library.new-cover-art": "Neues Cover",
 	"server.plugins.send-event-library-add": "sende {\"event\": \"library.add\"}",
 	"server.plugins.send-on-true-or-on-false": "sende {\"on\": true} oder {\"on\": false}",
-	"server.migrate.the-same-as-a-source-that": "dasselbe wie {name}, eine Quelle, die schon hier ist"
+	"server.migrate.the-same-as-a-source-that": "dasselbe wie {name}, eine Quelle, die schon hier ist",
+	"server.health.that-file-isn-t-in-the": "That file isn't in the shrink log.",
+	"server.health.unknown-action": "unknown action",
+	"server.health.unknown-fix": "unknown fix",
+	"server.migrate.approve-it-again-here-to-add": "approve it again here to add it"
 }

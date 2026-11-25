@@ -2459,5 +2459,9 @@
 	"server.library.new-cover-art": "Kulit baharu",
 	"server.plugins.send-event-library-add": "hantar {\"event\": \"library.add\"}",
 	"server.plugins.send-on-true-or-on-false": "hantar {\"on\": true} atau {\"on\": false}",
-	"server.migrate.the-same-as-a-source-that": "sama seperti {name}, Sumber yang ada di sini"
+	"server.migrate.the-same-as-a-source-that": "sama seperti {name}, Sumber yang ada di sini",
+	"server.health.that-file-isn-t-in-the": "That file isn't in the shrink log.",
+	"server.health.unknown-action": "unknown action",
+	"server.health.unknown-fix": "unknown fix",
+	"server.migrate.approve-it-again-here-to-add": "approve it again here to add it"
 }

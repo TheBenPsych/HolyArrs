@@ -2459,5 +2459,9 @@
 	"server.library.new-cover-art": "新しいカバーアート",
 	"server.plugins.send-event-library-add": "送信: {\"event\": \"library.add\"}",
 	"server.plugins.send-on-true-or-on-false": "送信: {\"on\": true} または {\"on\": false}",
-	"server.migrate.the-same-as-a-source-that": "{name} と同じで、すでにあるソースです"
+	"server.migrate.the-same-as-a-source-that": "{name} と同じで、すでにあるソースです",
+	"server.health.that-file-isn-t-in-the": "That file isn't in the shrink log.",
+	"server.health.unknown-action": "unknown action",
+	"server.health.unknown-fix": "unknown fix",
+	"server.migrate.approve-it-again-here-to-add": "approve it again here to add it"
 }

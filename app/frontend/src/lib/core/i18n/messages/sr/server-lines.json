@@ -2459,5 +2459,9 @@
 	"server.library.new-cover-art": "Нова насловна слика",
 	"server.plugins.send-event-library-add": "пошаљи {\"event\": \"library.add\"}",
 	"server.plugins.send-on-true-or-on-false": "пошаљи {\"on\": true} или {\"on\": false}",
-	"server.migrate.the-same-as-a-source-that": "исто као {name}, Извор који је већ овде"
+	"server.migrate.the-same-as-a-source-that": "исто као {name}, Извор који је већ овде",
+	"server.health.that-file-isn-t-in-the": "That file isn't in the shrink log.",
+	"server.health.unknown-action": "unknown action",
+	"server.health.unknown-fix": "unknown fix",
+	"server.migrate.approve-it-again-here-to-add": "approve it again here to add it"
 }
