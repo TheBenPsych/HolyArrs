@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { FinishSetupCard } from '#lib/setup/index.ts';
 	import { t } from '#lib/core/i18n/i18n.svelte.ts';
 	// Harbor: the Settings home is one search box and six plain groups (lib/harbor/HarborSettings.svelte, bold redesign part 7).
 	// The search is still HolyArrs's: every page and every hand-made entry, found by its words. My account is in the account menu.
@@ -53,4 +54,10 @@
 
 <svelte:head><title>{t('settings.home.title')} · HolyArrs</title></svelte:head>
 
+<div class="finish-setup"><FinishSetupCard /></div>
 <HarborSettings {sections} results={hits} />
+
+<style>
+	.finish-setup:empty { display: none; }
+	.finish-setup { margin-bottom: var(--s-4); }
+</style>

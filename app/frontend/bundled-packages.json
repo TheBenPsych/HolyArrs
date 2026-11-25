@@ -9,7 +9,7 @@
 		"name": "@fontsource-variable/geist",
 		"version": "5.3.0",
 		"license": "OFL-1.1",
-		"path": "../../../../repo/app/frontend/node_modules/@fontsource-variable/geist"
+		"path": "node_modules/@fontsource-variable/geist"
 	},
 	{
 		"name": "@fontsource-variable/oswald",
@@ -27,7 +27,7 @@
 		"name": "@fontsource/anton",
 		"version": "5.3.0",
 		"license": "OFL-1.1",
-		"path": "../../../../repo/app/frontend/node_modules/@fontsource/anton"
+		"path": "node_modules/@fontsource/anton"
 	},
 	{
 		"name": "@fontsource/barlow-semi-condensed",
@@ -39,13 +39,13 @@
 		"name": "@fontsource/silkscreen",
 		"version": "5.3.0",
 		"license": "OFL-1.1",
-		"path": "../../../../repo/app/frontend/node_modules/@fontsource/silkscreen"
+		"path": "node_modules/@fontsource/silkscreen"
 	},
 	{
 		"name": "@sveltejs/kit",
 		"version": "3.0.1",
 		"license": "MIT",
-		"path": "../../../../repo/app/frontend/node_modules/@sveltejs/kit"
+		"path": "node_modules/@sveltejs/kit"
 	},
 	{
 		"name": "clsx",

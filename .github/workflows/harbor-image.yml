@@ -66,7 +66,11 @@ jobs:
           file: deploy/Dockerfile
           platforms: linux/amd64
           push: ${{ github.event_name != 'pull_request' }}
-          build-args: VERSION=${{ steps.names.outputs.version }}
+          # noupdater: HolyArrs 1.3 can download and run a newer HolyArrs by itself, which would
+          # swap Harbor for plain HolyArrs. Harbor gets its updates from this image instead.
+          build-args: |
+            VERSION=${{ steps.names.outputs.version }}
+            GOFLAGS=-tags=noupdater
           labels: |
             org.opencontainers.image.title=Harbor
             org.opencontainers.image.description=Harbor, a fork of HolyArrs (AGPL-3.0)

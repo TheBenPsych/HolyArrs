@@ -41,6 +41,12 @@ The HolyArrs release workflows (`release.yml`, `sign.yml`, `linux.yml`,
 `synology.yml`) are left untouched and unused. They only start from a version
 tag, and Harbor does not push version tags.
 
+4. **No self-updates.** HolyArrs 1.3 can download and run a newer HolyArrs
+   by itself. Harbor's image is built with the `noupdater` tag and the
+   install sets `HOLYARRS_UPDATE_CHECK=off`, so Harbor is never swapped for
+   plain HolyArrs; Harbor updates come from its own image (Tower checks
+   hourly).
+
 ## Builds
 
 `.github/workflows/harbor-image.yml` checks every pull request (image build,
