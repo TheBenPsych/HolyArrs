@@ -2458,5 +2458,6 @@
 	"server.plugins.send-name": "পাঠান {\"name\": \"...\"}",
 	"server.library.new-cover-art": "নতুন কভার আর্ট",
 	"server.plugins.send-event-library-add": "পাঠান {\"event\": \"library.add\"}",
-	"server.plugins.send-on-true-or-on-false": "পাঠান {\"on\": true} বা {\"on\": false}"
+	"server.plugins.send-on-true-or-on-false": "পাঠান {\"on\": true} বা {\"on\": false}",
+	"server.migrate.the-same-as-a-source-that": "{name}-এর মতোই, একটি সোর্স যা এখানে আছে"
 }
