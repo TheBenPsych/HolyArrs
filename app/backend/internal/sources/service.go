@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"net/url"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
@@ -98,6 +97,9 @@ type Input struct {
 	// DownloaderID picks the one Downloader this Source's grabs go to; 0 is
 	// any Downloader and nil keeps the stored choice.
 	DownloaderID *int64 `json:"downloader_id"`
+	// FlareSolverr is the address of a FlareSolverr that opens the site's
+	// bot check; empty clears it and nil keeps it.
+	FlareSolverr *string `json:"flaresolverr"`
 }
 
 // queryErr is the error behind ErrQuery.
@@ -190,6 +192,11 @@ func Change(ctx context.Context, s *database.Store, v *secrets.Vault, id int64, 
 	// The stored proxy address has no password, so a changed scheme, name or host needs it typed again.
 	if src.ProxySecretRef != nil && pass == "" && src.ProxyURL != "" && src.ProxyURL != old.ProxyURL {
 		return old, ErrProxyAgain
+	}
+	// FlareSolverr is handed the page address and the proxy with its password, so a new FlareSolverr host needs them typed again.
+	if src.FlareSolverrURL != "" && hostOf(src.FlareSolverrURL) != hostOf(old.FlareSolverrURL) &&
+		(src.SecretRef != nil && key == "" && !in.ClearKey || pathKept || src.ProxySecretRef != nil && pass == "") {
+		return old, ErrFlareAgain
 	}
 	// A plain http Source sends its key in the clear to whatever proxy carries it.
 	if (src.SecretRef != nil && key == "" && !in.ClearKey || pathKept) && strings.HasPrefix(src.URL, "http://") &&
@@ -326,6 +333,11 @@ func ConfigFor(ctx context.Context, src domain.Source, sec SecretReader) (Config
 		cfg.PathKeys = splitKeys(plain)
 		if cfg.URL, err = revealPath(src.URL, cfg.PathKeys); err != nil {
 			return cfg, err
+		}
+	}
+	if src.FlareSolverrURL != "" {
+		if cfg.FlareSolverr, err = url.Parse(src.FlareSolverrURL); err != nil {
+			return cfg, ErrFlareSolverr
 		}
 	}
 	if src.ProxyURL != "" {
@@ -540,28 +552,6 @@ func checkURL(raw string) (*url.URL, error) {
 	return u, nil
 }
 
-// parseProxy checks a proxy address and returns it without the password, which comes back apart.
-func parseProxy(raw string) (clean string, pass string, err error) {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return "", "", nil
-	}
-	u, err := url.Parse(raw)
-	if err != nil || (u.Scheme != "http" && u.Scheme != "https" && u.Scheme != "socks5") || u.Port() == "" || u.Hostname() == "" ||
-		(u.Path != "" && u.Path != "/") || u.RawQuery != "" {
-		return "", "", ErrProxy
-	}
-	if n, err := strconv.Atoi(u.Port()); err != nil || n < 1 || n > 65535 {
-		return "", "", ErrProxy
-	}
-	out := url.URL{Scheme: u.Scheme, Host: u.Host}
-	if u.User != nil {
-		pass, _ = u.User.Password()
-		out.User = url.User(u.User.Username())
-	}
-	return out.String(), pass, nil
-}
-
 func hostOf(raw string) string {
 	u, err := url.Parse(raw)
 	if err != nil {
@@ -732,6 +722,11 @@ func fill(in Input, src *domain.Source, isNew bool) (key, proxyPass string, err 
 			proxyPass = pass
 		}
 		src.ProxyURL = clean
+	}
+	if in.FlareSolverr != nil {
+		if src.FlareSolverrURL, err = ParseFlareSolverr(*in.FlareSolverr); err != nil {
+			return "", "", err
+		}
 	}
 	if isNew {
 		src.State = "enabled"

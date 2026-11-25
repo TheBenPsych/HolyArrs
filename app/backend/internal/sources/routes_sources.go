@@ -55,13 +55,15 @@ type SourceView struct {
 	NoLanguageLanguages []string `json:"no_language_languages"`
 	// DownloaderID is the one Downloader this Source's grabs go to; 0 is any.
 	DownloaderID int64 `json:"downloader_id"`
+	// FlareSolverr is the FlareSolverr that opens the site's bot check; empty is none.
+	FlareSolverr string `json:"flaresolverr"`
 }
 
 // SourceViewOf is x as the API shows it, with its summary.
 func SourceViewOf(x domain.Source, sum Summary) SourceView {
 	v := SourceView{ID: x.ID, Name: x.Name, Protocol: x.Protocol, Format: x.Format, Site: x.Extra[extraSiteKind], SiteUser: x.Extra[extraSiteUser], SiteLogin: x.Extra[extraSiteLogin], SiteAgent: x.Extra[extraSiteAgent], URL: MaskURL(x.URL), UseFor: x.UseFor, Kinds: x.Kinds,
 		Categories: x.Categories, MinSeeders: x.MinSeeders, Limits: x.Limits, Priority: x.Priority, State: x.State, Health: HealthOf(x),
-		AllowLocal: x.AllowLocal, Proxy: x.ProxyURL, ProxyAllowLocal: x.ProxyAllowLocal, Summary: sum, Tags: x.Tags, MultiLanguages: x.MultiLanguages, NoLanguageLanguages: x.NoLanguageLanguages}
+		AllowLocal: x.AllowLocal, Proxy: x.ProxyURL, ProxyAllowLocal: x.ProxyAllowLocal, Summary: sum, Tags: x.Tags, MultiLanguages: x.MultiLanguages, NoLanguageLanguages: x.NoLanguageLanguages, FlareSolverr: x.FlareSolverrURL}
 	if v.NoLanguageLanguages == nil {
 		v.NoLanguageLanguages = []string{}
 	}
@@ -109,7 +111,7 @@ func (h *Handlers) listSites(w http.ResponseWriter, r *http.Request) {
 	webserver.WriteJSON(w, http.StatusOK, map[string]any{"sites": Sites})
 }
 
-const sourceHelp = `send name, format (torznab, newznab, rss or site; a site Source also sends site: knaben, torrentscsv, subsplease or iptorrents), url, and if needed api_key (for iptorrents the passkey, with site_user: your user id there; or site_login: cookie with the browser cookie as api_key and an optional site_agent), protocol, use_for {feed, auto_search, hand_search}, kinds, categories, min_seeders, limits, priority (1 to 50), allow_local_network, proxy, proxy_password, proxy_allow_local_network, multi_languages (language codes a MULTi release carries here), no_language_languages (language codes a release here carries when its name shows none)`
+const sourceHelp = `send name, format (torznab, newznab, rss or site; a site Source also sends site: knaben, torrentscsv, subsplease or iptorrents), url, and if needed api_key (for iptorrents the passkey, with site_user: your user id there; or site_login: cookie with the browser cookie as api_key and an optional site_agent), protocol, use_for {feed, auto_search, hand_search}, kinds, categories, min_seeders, limits, priority (1 to 50), allow_local_network, proxy, proxy_password, proxy_allow_local_network, multi_languages (language codes a MULTi release carries here), no_language_languages (language codes a release here carries when its name shows none), flaresolverr`
 
 // readSource reads a Source body; the masked placeholder keeps the stored secret.
 func readSource(w http.ResponseWriter, r *http.Request) (Input, bool) {
@@ -128,14 +130,14 @@ func readSource(w http.ResponseWriter, r *http.Request) (Input, bool) {
 
 func sourceError(w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, ErrNameUsed), errors.Is(err, ErrKeyAgain), errors.Is(err, ErrKeyAgainProxy), errors.Is(err, ErrProxyAgain),
+	case errors.Is(err, ErrNameUsed), errors.Is(err, ErrKeyAgain), errors.Is(err, ErrKeyAgainProxy), errors.Is(err, ErrProxyAgain), errors.Is(err, ErrFlareAgain),
 		errors.Is(err, ErrPathKey), errors.Is(err, ErrPathKeyNone), errors.Is(err, ErrPathKeyRSS):
 		webserver.Fail(w, http.StatusConflict, err.Error())
 	case errors.Is(err, ErrNoVault):
 		webserver.Fail(w, http.StatusServiceUnavailable, err.Error())
 	case errors.Is(err, database.ErrNotFound):
 		webserver.Fail(w, http.StatusNotFound, "no such Source")
-	case errors.Is(err, ErrName), errors.Is(err, ErrFormat), errors.Is(err, ErrSite), errors.Is(err, ErrProtocol), errors.Is(err, ErrURL),
+	case errors.Is(err, ErrName), errors.Is(err, ErrFormat), errors.Is(err, ErrSite), errors.Is(err, ErrProtocol), errors.Is(err, ErrURL), errors.Is(err, ErrFlareSolverr),
 		errors.Is(err, ErrPriority), errors.Is(err, ErrLimits), errors.Is(err, ErrLanguages), errors.Is(err, ErrKinds), errors.Is(err, ErrUse),
 		errors.Is(err, ErrProxy), errors.Is(err, ErrSeeders), errors.Is(err, ErrSiteUser), errors.Is(err, ErrSiteLogin):
 		webserver.Fail(w, http.StatusBadRequest, err.Error())

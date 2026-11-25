@@ -9,6 +9,8 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
+	"strings"
 
 	"github.com/HolyArrs/holyarrs/app/backend/internal/core/outbound"
 )
@@ -192,4 +194,26 @@ func feedError(body []byte) error {
 		kind = KindDown
 	}
 	return &Error{Kind: kind, Msg: fmt.Sprintf("code %d: %s", e.Code, e.Description), RetryAfter: Backoff(1)}
+}
+
+// parseProxy checks a proxy address and returns it without the password, which comes back apart.
+func parseProxy(raw string) (clean string, pass string, err error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", "", nil
+	}
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https" && u.Scheme != "socks5") || u.Port() == "" || u.Hostname() == "" ||
+		(u.Path != "" && u.Path != "/") || u.RawQuery != "" {
+		return "", "", ErrProxy
+	}
+	if n, err := strconv.Atoi(u.Port()); err != nil || n < 1 || n > 65535 {
+		return "", "", ErrProxy
+	}
+	out := url.URL{Scheme: u.Scheme, Host: u.Host}
+	if u.User != nil {
+		pass, _ = u.User.Password()
+		out.User = url.User(u.User.Username())
+	}
+	return out.String(), pass, nil
 }

@@ -30,6 +30,8 @@ export interface SourceForm {
 	proxy: string;
 	proxy_password: string;
 	proxy_allow_local_network: boolean;
+	// flaresolverr opens the site's bot check, such as Cloudflare's.
+	flaresolverr: string;
 	tags: string[];
 	// multi_languages: what MULTi means on this Source, as typed ("fr, en").
 	multi_languages: string;
@@ -98,6 +100,7 @@ export function emptyForm(): SourceForm {
 		proxy: '',
 		proxy_password: '',
 		proxy_allow_local_network: false,
+		flaresolverr: '',
 		tags: [],
 		multi_languages: '',
 		no_language_languages: '',
@@ -132,6 +135,7 @@ export function formFrom(s: SourceView): SourceForm {
 		proxy: s.proxy,
 		proxy_password: s.proxy_password,
 		proxy_allow_local_network: s.proxy_allow_local_network,
+		flaresolverr: s.flaresolverr ?? '',
 		tags: [...(s.tags ?? [])],
 		multi_languages: (s.multi_languages ?? []).join(', '),
 		no_language_languages: (s.no_language_languages ?? []).join(', '),
@@ -203,6 +207,7 @@ export function formBody(f: SourceForm): Record<string, unknown> {
 		proxy: f.proxy.trim(),
 		proxy_password: f.proxy_password,
 		proxy_allow_local_network: f.proxy_allow_local_network,
+		flaresolverr: f.flaresolverr.trim(),
 		tags: f.tags,
 		multi_languages: codeList(f.multi_languages),
 		no_language_languages: codeList(f.no_language_languages),

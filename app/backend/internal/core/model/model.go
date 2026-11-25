@@ -115,6 +115,9 @@ type Source struct {
 	// DownloaderID sends every grab from this Source to that one Downloader;
 	// nil sends to any.
 	DownloaderID *int64 `db:"downloader_id"`
+	// FlareSolverrURL is a FlareSolverr that opens the site's bot check
+	// when the site shows one; empty means none.
+	FlareSolverrURL string `db:"flaresolverr_url"`
 }
 
 // Release is one search result.
