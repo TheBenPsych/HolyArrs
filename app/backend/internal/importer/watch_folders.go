@@ -44,7 +44,7 @@ func ReadWatchFolders(ctx context.Context, db database.Lister) ([]string, error)
 			}
 		}
 	}
-	return out, rows.Err()
+	return withHarborDrop(out), rows.Err() // Harbor: the drop folder (harbor_drop.go)
 }
 
 // SaveWatchFolders validates and stores the watched folders.

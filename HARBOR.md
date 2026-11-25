@@ -80,6 +80,16 @@ in `/tdarr/harbor` (settings, Put back, Fix it, Skip tonight); Tower's helper
 (`tdarr-watch.sh harbor`, every 2 minutes) does the work. Harbor never talks
 to Tdarr and never changes a video.
 
+## Drop folder
+
+The install makes `Media/Drop` on Tower and gives it to Harbor as
+`HARBOR_DROP_DIR=/data/Drop`. Every 5 minutes Harbor looks through it with
+the other watched folders (`app/backend/internal/importer/harbor_drop.go`,
+hooked into `ReadWatchFolders`): a movie or episode file whose title is on
+the shelves and still needs that file is named and moved to its place.
+Anything unsure stays there for Import files by hand. In watch-only mode
+the drop folder waits, because Harbor places no files then.
+
 ## Manga engine trial
 
 `deploy/harbor/harbor-manga-trial.sh` starts Suwayomi (the community manga

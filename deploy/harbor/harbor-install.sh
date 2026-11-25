@@ -208,6 +208,25 @@ else
   ok "Media folder: $MEDIA (writable)"
 fi
 
+# ------------------------------------------------------------- drop folder
+# The drop folder: put a movie or episode file in Media/Drop and Harbor
+# names it and moves it to its place on the shelves, when that title is on
+# the shelves and still needs the file. Unsure files stay there. It lives in
+# the media folder so a move is instant (same disk). In watch-only mode it
+# waits: Harbor starts using it when it takes over from the old apps.
+DROP_ARGS=""
+if [ -n "$DRY" ] || mkdir -p "$MEDIA/Drop" 2>/dev/null; then
+  [ -n "$DRY" ] || chown 99:100 "$MEDIA/Drop" 2>/dev/null
+  DROP_ARGS="-e HARBOR_DROP_DIR=/data/Drop"
+  if [ "$MODE" = watch ]; then
+    ok "Drop folder: $MEDIA/Drop (starts working when Harbor takes over)"
+  else
+    ok "Drop folder: $MEDIA/Drop (Harbor files what you put there every 5 minutes)"
+  fi
+else
+  note "Drop folder: could not make $MEDIA/Drop, so there is no drop folder"
+fi
+
 # ------------------------------------------------------------- manga
 # The manga shelf: Harbor's librarian tidies what the manga engine
 # downloads. It gets the Manga folder on its own, writable, even in
@@ -300,6 +319,7 @@ docker run -d \
   -e HOLYARRS_UPDATE_CHECK=off \
   -v "$CONFIG:/config" \
   -v "$MEDIA_MOUNT" \
+  $DROP_ARGS \
   $MANGA_ARGS \
   $SHRINK_ARGS \
   -l "net.unraid.docker.webui=http://[IP]:[PORT:6262]/" \
