@@ -2458,5 +2458,10 @@
 	"server.plugins.send-name": "надішли {\"name\": \"...\"}",
 	"server.library.new-cover-art": "Нова обкладинка",
 	"server.plugins.send-event-library-add": "надішли {\"event\": \"library.add\"}",
-	"server.plugins.send-on-true-or-on-false": "надішли {\"on\": true} або {\"on\": false}"
+	"server.plugins.send-on-true-or-on-false": "надішли {\"on\": true} або {\"on\": false}",
+	"server.migrate.the-same-as-a-source-that": "те саме, що {name}, джерело, яке вже є",
+	"server.health.that-file-isn-t-in-the": "That file isn't in the shrink log.",
+	"server.health.unknown-action": "unknown action",
+	"server.health.unknown-fix": "unknown fix",
+	"server.migrate.approve-it-again-here-to-add": "approve it again here to add it"
 }

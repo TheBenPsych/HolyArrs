@@ -2458,5 +2458,10 @@
 	"server.plugins.send-name": "saada {\"name\": \"...\"}",
 	"server.library.new-cover-art": "Uus kaanepilt",
 	"server.plugins.send-event-library-add": "saada {\"event\": \"library.add\"}",
-	"server.plugins.send-on-true-or-on-false": "saada {\"on\": true} või {\"on\": false}"
+	"server.plugins.send-on-true-or-on-false": "saada {\"on\": true} või {\"on\": false}",
+	"server.migrate.the-same-as-a-source-that": "sama mis {name}, allikas, mis on siin olemas",
+	"server.health.that-file-isn-t-in-the": "That file isn't in the shrink log.",
+	"server.health.unknown-action": "unknown action",
+	"server.health.unknown-fix": "unknown fix",
+	"server.migrate.approve-it-again-here-to-add": "approve it again here to add it"
 }

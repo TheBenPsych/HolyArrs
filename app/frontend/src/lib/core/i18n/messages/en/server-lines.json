@@ -2458,5 +2458,10 @@
 	"server.accounts.too-many-wrong-codes-try-again": "too many wrong codes; try again in ten minutes",
 	"server.library.new-cover-art": "New cover art",
 	"server.plugins.send-event-library-add": "send {\"event\": \"library.add\"}",
-	"server.plugins.send-on-true-or-on-false": "send {\"on\": true} or {\"on\": false}"
+	"server.plugins.send-on-true-or-on-false": "send {\"on\": true} or {\"on\": false}",
+	"server.migrate.the-same-as-a-source-that": "the same as {name}, a Source that is here",
+	"server.health.that-file-isn-t-in-the": "That file isn't in the shrink log.",
+	"server.health.unknown-action": "unknown action",
+	"server.health.unknown-fix": "unknown fix",
+	"server.migrate.approve-it-again-here-to-add": "approve it again here to add it"
 }

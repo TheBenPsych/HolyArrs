@@ -2458,5 +2458,10 @@
 	"server.plugins.send-name": "pošalji {\"name\": \"...\"}",
 	"server.library.new-cover-art": "Nova naslovnica",
 	"server.plugins.send-event-library-add": "pošalji {\"event\": \"library.add\"}",
-	"server.plugins.send-on-true-or-on-false": "pošalji {\"on\": true} ili {\"on\": false}"
+	"server.plugins.send-on-true-or-on-false": "pošalji {\"on\": true} ili {\"on\": false}",
+	"server.migrate.the-same-as-a-source-that": "isto kao {name}, izvor koji već postoji",
+	"server.health.that-file-isn-t-in-the": "That file isn't in the shrink log.",
+	"server.health.unknown-action": "unknown action",
+	"server.health.unknown-fix": "unknown fix",
+	"server.migrate.approve-it-again-here-to-add": "approve it again here to add it"
 }

@@ -2458,5 +2458,10 @@
 	"server.plugins.send-name": "{\"name\": \"...\"}를 보내세요",
 	"server.library.new-cover-art": "새 커버 아트",
 	"server.plugins.send-event-library-add": "보내기: {\"event\": \"library.add\"}",
-	"server.plugins.send-on-true-or-on-false": "보내기: {\"on\": true} 또는 {\"on\": false}"
+	"server.plugins.send-on-true-or-on-false": "보내기: {\"on\": true} 또는 {\"on\": false}",
+	"server.migrate.the-same-as-a-source-that": "{name}와 같으며, 이미 있는 소스입니다",
+	"server.health.that-file-isn-t-in-the": "That file isn't in the shrink log.",
+	"server.health.unknown-action": "unknown action",
+	"server.health.unknown-fix": "unknown fix",
+	"server.migrate.approve-it-again-here-to-add": "approve it again here to add it"
 }

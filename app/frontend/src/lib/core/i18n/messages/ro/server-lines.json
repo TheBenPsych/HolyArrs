@@ -2458,5 +2458,10 @@
 	"server.plugins.send-name": "trimite {\"name\": \"...\"}",
 	"server.library.new-cover-art": "Copertă nouă",
 	"server.plugins.send-event-library-add": "trimite {\"event\": \"library.add\"}",
-	"server.plugins.send-on-true-or-on-false": "trimite {\"on\": true} sau {\"on\": false}"
+	"server.plugins.send-on-true-or-on-false": "trimite {\"on\": true} sau {\"on\": false}",
+	"server.migrate.the-same-as-a-source-that": "la fel ca {name}, o Sursă care e aici",
+	"server.health.that-file-isn-t-in-the": "That file isn't in the shrink log.",
+	"server.health.unknown-action": "unknown action",
+	"server.health.unknown-fix": "unknown fix",
+	"server.migrate.approve-it-again-here-to-add": "approve it again here to add it"
 }

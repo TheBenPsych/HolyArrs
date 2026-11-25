@@ -392,6 +392,7 @@ client_secret
 closed
 closed_at
 closed_by
+cmd
 code
 codec
 codecs
@@ -430,6 +431,7 @@ content_path
 content_ratings
 content_urls
 controls
+cookies
 copies
 copies_expected
 copy
@@ -724,6 +726,7 @@ fix
 fixed
 flags
 flap_guard
+flaresolverr
 flat
 flatrate
 folder
@@ -1109,6 +1112,7 @@ matched_at
 matched_by_id
 matchingSubtitles
 max
+maxTimeout
 max_age_days
 max_rating
 max_rps
@@ -1688,6 +1692,7 @@ reset_time_utc
 resolution
 resource
 resources
+response
 restart_needed
 restarts
 restricted
@@ -1725,6 +1730,7 @@ runtime_minutes
 s
 sabnzbd
 salt
+same_as
 sample_rate
 savePath
 save_path
@@ -1897,6 +1903,7 @@ smtp_security
 smtp_user
 snapshot
 snapshots
+solution
 sonarr
 song
 songs
@@ -2021,6 +2028,7 @@ text
 theaters
 theirs
 thetvdb
+through
 thumb
 ticket
 tier
@@ -2215,6 +2223,7 @@ used_at
 used_by
 usenet_delay
 user
+userAgent
 user_code
 user_fingerprint
 user_id

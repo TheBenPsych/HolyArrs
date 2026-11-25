@@ -2458,5 +2458,10 @@
 	"server.plugins.send-name": "ipadala ang {\"name\": \"...\"}",
 	"server.library.new-cover-art": "Bagong cover art",
 	"server.plugins.send-event-library-add": "ipadala {\"event\": \"library.add\"}",
-	"server.plugins.send-on-true-or-on-false": "ipadala {\"on\": true} o {\"on\": false}"
+	"server.plugins.send-on-true-or-on-false": "ipadala {\"on\": true} o {\"on\": false}",
+	"server.migrate.the-same-as-a-source-that": "kapareho ng {name}, isang Source na nandito na",
+	"server.health.that-file-isn-t-in-the": "That file isn't in the shrink log.",
+	"server.health.unknown-action": "unknown action",
+	"server.health.unknown-fix": "unknown fix",
+	"server.migrate.approve-it-again-here-to-add": "approve it again here to add it"
 }

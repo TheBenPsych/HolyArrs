@@ -2458,5 +2458,10 @@
 	"server.plugins.send-name": "küldje: {\"name\": \"...\"}",
 	"server.library.new-cover-art": "Új borítókép",
 	"server.plugins.send-event-library-add": "küldd {\"event\": \"library.add\"}",
-	"server.plugins.send-on-true-or-on-false": "küldd {\"on\": true} vagy {\"on\": false}"
+	"server.plugins.send-on-true-or-on-false": "küldd {\"on\": true} vagy {\"on\": false}",
+	"server.migrate.the-same-as-a-source-that": "ugyanaz, mint {name}, egy Forrás, ami már itt van",
+	"server.health.that-file-isn-t-in-the": "That file isn't in the shrink log.",
+	"server.health.unknown-action": "unknown action",
+	"server.health.unknown-fix": "unknown fix",
+	"server.migrate.approve-it-again-here-to-add": "approve it again here to add it"
 }
