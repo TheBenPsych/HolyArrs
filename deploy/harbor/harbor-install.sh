@@ -208,6 +208,24 @@ else
   ok "Media folder: $MEDIA (writable)"
 fi
 
+# ------------------------------------------------------------- FlareSolverr
+# Tower's FlareSolverr (the one Prowlarr uses) opens sites behind a bot
+# check. Harbor gets its address and uses it for any Source that has no
+# FlareSolverr address of its own, only when a site shows its check.
+FLARE_ARGS=""
+FLARE_C="$(find_app 'flaresolverr')"
+if [ -n "$FLARE_C" ]; then
+  FLARE_URL="$(address_of "$FLARE_C" 8191)"
+  if [ -n "$FLARE_URL" ]; then
+    FLARE_ARGS="-e HARBOR_FLARESOLVERR=$FLARE_URL"
+    ok "FlareSolverr: Harbor uses $FLARE_URL for sites with a bot check"
+  else
+    note "FlareSolverr: found $FLARE_C but not its address"
+  fi
+else
+  note "FlareSolverr: not installed, so sites with a bot check stay blocked"
+fi
+
 # ------------------------------------------------------------- drop folder
 # The drop folder: put a movie or episode file in Media/Drop and Harbor
 # names it and moves it to its place on the shelves, when that title is on
@@ -319,6 +337,7 @@ docker run -d \
   -e HOLYARRS_UPDATE_CHECK=off \
   -v "$CONFIG:/config" \
   -v "$MEDIA_MOUNT" \
+  $FLARE_ARGS \
   $DROP_ARGS \
   $MANGA_ARGS \
   $SHRINK_ARGS \

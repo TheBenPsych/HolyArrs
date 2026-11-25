@@ -340,6 +340,9 @@ func ConfigFor(ctx context.Context, src domain.Source, sec SecretReader) (Config
 			return cfg, ErrFlareSolverr
 		}
 	}
+	if cfg.FlareSolverr == nil {
+		cfg.FlareSolverr = harborFlareSolverr() // Harbor: Tower's own FlareSolverr (harbor_flaresolverr.go)
+	}
 	if src.ProxyURL != "" {
 		p, err := url.Parse(src.ProxyURL)
 		if err != nil {
