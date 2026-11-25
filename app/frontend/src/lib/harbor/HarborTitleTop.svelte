@@ -32,7 +32,8 @@
 		status = '',
 		crumbs = [],
 		actions,
-		byline
+		byline,
+		scores
 	}: {
 		details: TitleDetails;
 		owned?: TitleView | null;
@@ -43,6 +44,8 @@
 		crumbs?: { href: string; label: string }[];
 		actions?: Snippet;
 		byline?: Snippet;
+		/** IMDb, Rotten Tomatoes and Metacritic scores, as logos (from TitlePage). */
+		scores?: Snippet;
 	} = $props();
 
 	const manage = $derived(session.can('manage_library') && !session.kid);
@@ -119,6 +122,7 @@
 				{#each chips as c, i (i)}<li>{c}</li>{/each}
 				{#if status}<li class="glow">{status}</li>{/if}
 			</ul>
+			{#if scores}<div class="ht-scores" data-testid="harbor-title-scores">{@render scores()}</div>{/if}
 			<p class="ht-say tone-{tone}" data-testid="harbor-title-say"><span class="dot" aria-hidden="true"></span>{sentence}</p>
 			{#if story?.facts.length}<p class="ht-facts">{#each story.facts as f (f)}<span>{f}</span>{/each}</p>{/if}
 			{#if byline}<div class="ht-by">{@render byline()}</div>{/if}
@@ -201,6 +205,10 @@
 	.tone-need { --c: var(--harbor-amber); }
 	.tone-bad { --c: var(--harbor-red); }
 	.tone-quiet { --c: color-mix(in srgb, var(--text) 45%, transparent); }
+	.ht-scores { margin: -2px 0 0; }
+	.ht-scores :global(.scores) { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+	.ht-scores :global(.scores li) { display: inline-flex; align-items: center; gap: 6px; font: 700 15px/1.2 var(--font-ui); }
+	.ht-scores :global(a) { color: inherit; text-decoration: none; }
 	.ht-facts { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: -4px 0 0 21px; font: 600 13px/1.3 var(--font-ui); color: var(--text-muted); }
 	.ht-by { font: 500 14px/1.4 var(--font-ui); color: var(--text-muted); }
 	.ht-by:empty { display: none; }
@@ -258,7 +266,7 @@
 		.ht-main { flex-direction: column; align-items: center; gap: 18px; }
 		.ht-poster { width: 150px; }
 		.ht-text { justify-items: center; text-align: center; }
-		.ht-chips, .ht-go, .ht-tools, .ht-facts { justify-content: center; }
+		.ht-chips, .ht-go, .ht-tools, .ht-facts, .ht-scores :global(.scores) { justify-content: center; }
 		.ht-facts { margin-left: 0; }
 		.ht-say { font-size: 17px; }
 		.ht-go { width: 100%; }

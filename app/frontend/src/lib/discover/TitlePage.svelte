@@ -455,6 +455,7 @@
 {#if details}
 	{@const d = details}
 	<article class="tp" data-testid="title-detail">
+		{#snippet heroScores()}<a href="#ratings" title={t('discover.titlePage.allRatings')}><TitleScores scores={topScores} variant="chips" /></a>{/snippet}
 		<!-- Harbor: the bold title page top (lib/harbor HarborTitleTop) replaces the HolyArrs hero; its buttons sit in the small row. -->
 		{#snippet heroByline()}{#if owned}<AskedByLine {askers} />{#if ownState.kind !== 'have' && ownState.kind !== 'downloading'}<SearchOutcomeLine titleId={owned.id} />{/if}{/if}{/snippet}
 			{#snippet heroActions()}
@@ -473,7 +474,7 @@
 				{#if d.kind === 'show' || d.kind === 'movie'}<FollowButton titleId={owned?.id} tmdb={d.tmdb} kind={d.kind} />{/if}
 				{#if mayHide && !owned}<ActionMenu label={t('discover.titlePage.moreActions')} caption={t('discover.titlePage.more')} icon="more" items={[hideItem]} />{/if}
 			{/snippet}
-		<HarborTitleTop details={d} {owned} facts={heroFacts(d)} cert={rich?.certification ?? certOf(d.rating)} tagline={info?.tagline} status={hiddenShown(d) ? hiddenPill(d.hides ?? [], people) : d.neverAdd || d.ask ? heroPill(d).label : ''} crumbs={harborCrumbs} actions={heroActions} byline={heroByline} />
+		<HarborTitleTop details={d} {owned} facts={heroFacts(d)} cert={rich?.certification ?? certOf(d.rating)} tagline={info?.tagline} status={hiddenShown(d) ? hiddenPill(d.hides ?? [], people) : d.neverAdd || d.ask ? heroPill(d).label : ''} crumbs={harborCrumbs} actions={heroActions} byline={heroByline} scores={topScores.length ? heroScores : undefined} />
 		{#if owned}<HarborTitleStory title={owned} name={d.name} />{/if}
 
 		{#snippet ask4kButton(td: TitleDetails)}
